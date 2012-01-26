@@ -1,0 +1,45 @@
+env/
+/cassandra/
+nginx.conf
+hiitrack.sh
+
+# Numerous always-ignore extensions
+*.pyc
+*.diff
+*.err
+*.orig
+*.log
+*.rej
+*.swo
+*.swp
+*.vi
+*~
+*.sass-cache
+
+# OS or Editor folders
+.DS_Store
+.cache
+.project
+.settings
+.tmproj
+nbproject
+Thumbs.db
+
+# Dreamweaver added files
+_notes
+dwsync.xml
+
+# Komodo
+*.komodoproject
+.komodotools
+
+# Folders to ignore
+web/intermediate
+web/publish
+*egg*
+*_trial_temp*
+# build script local files
+web/build/buildinfo.properties
+web/build/config/buildinfo.properties
+
+
