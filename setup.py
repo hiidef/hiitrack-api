@@ -8,7 +8,19 @@ setup(
 
     packages = find_packages(),
 
-    install_requires = [],
+    dependency_links = [
+        'https://github.com/steiza/txroutes/zipball/master#egg=txroutes-0.0.2',
+        'https://github.com/hiidef/Telephus/zipball/master#egg=telephus-1.0.0',
+        'https://github.com/hiidef/cityhash/zipball/master#egg=cityhash-0.2.0'],
+
+    install_requires = [
+        'Routes>=1.12.3',
+        'Twisted>=11.1.0',
+        'thrift>=0.8.0',
+        'ujson>=1.15',
+        'cityhash>=0.2.0',
+        'telephus>=1.0.0',
+        'txroutes>=0.0.2'],
 
     include_package_data = True,
 
