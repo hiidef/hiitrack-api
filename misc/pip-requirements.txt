@@ -1,0 +1,7 @@
+Cython>=0.15.1
+Routes>=1.12.3
+Twisted>=11.1.0
+thrift>=0.8.0
+ujson>=1.15
+-e git+https://github.com/steiza/txroutes.git#egg=txroutes-0.0.2
+-e git+https://github.com/driftx/Telephus.git#egg=telephus-0.8.0~beta1
