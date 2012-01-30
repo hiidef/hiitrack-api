@@ -11,10 +11,10 @@ class UserTestCase(unittest.TestCase):
     
     def setUp(self):
         self.hiitrack = HiiTrack(8080)
+        self.hiitrack.startService()
         
     def tearDown(self):
-        # Despite beforeShutdown hooks, Twisted complains.
-        self.hiitrack.shutdown() 
+        self.hiitrack.stopService() 
 
     @inlineCallbacks
     def test_create(self):

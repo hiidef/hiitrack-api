@@ -13,6 +13,7 @@ class BucketTestCase(unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         self.hiitrack = HiiTrack(8080)
+        self.hiitrack.startService()
         self.username = uuid.uuid4().hex
         self.password = uuid.uuid4().hex
         self.username2 = uuid.uuid4().hex
@@ -40,7 +41,7 @@ class BucketTestCase(unittest.TestCase):
             username=self.username2,
             password=self.password2) 
         # Despite beforeShutdown hooks, Twisted complains.
-        self.hiitrack.shutdown() 
+        self.hiitrack.stopService() 
  
     @inlineCallbacks
     def test_unauthorized(self):

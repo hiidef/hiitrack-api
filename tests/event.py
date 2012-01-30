@@ -16,6 +16,7 @@ class EventTestCase(unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         self.hiitrack = HiiTrack(8080)
+        self.hiitrack.startService()
         self.username = uuid.uuid4().hex
         self.password = uuid.uuid4().hex
         yield request(
@@ -45,8 +46,7 @@ class EventTestCase(unittest.TestCase):
             "http://127.0.0.1:8080/%s" % self.username,
             username=self.username,
             password=self.password) 
-        # Despite beforeShutdown hooks, Twisted complains.
-        self.hiitrack.shutdown()
+        self.hiitrack.stopService()
 
     @inlineCallbacks
     def get_property_dict(self):

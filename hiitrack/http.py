@@ -3,6 +3,8 @@
 
 """HiiTrack HTTP interface."""
 
+from twisted.application.service import Service
+from telephus.pool import CassandraClusterPool
 from twisted.python import log
 from twisted.internet import reactor
 from twisted.web.server import Site
@@ -13,15 +15,14 @@ from .controllers.event import Event
 from .controllers.property import Property
 from .controllers.funnel import Funnel
 from .lib import cassandra
-from telephus.pool import CassandraClusterPool
 
 
-class HiiTrack(object):
+class HiiTrack(Service):
     """
     HiiTrack HTTP interface.
     """
 
-    port = None
+    listener = None
 
     def __init__(self, port=8080, cassandra_settings=None):
         if not cassandra_settings:
@@ -30,8 +31,6 @@ class HiiTrack(object):
             cassandra_settings.get("servers", ["127.0.0.1"]),
             keyspace=cassandra_settings.get("keyspace", "HiiTrack"),
             pool_size=cassandra_settings.get("pool_size", None))
-        cassandra.CLIENT.startService()
-        reactor.addSystemEventTrigger('before', 'shutdown', self.shutdown)
         dispatcher = Dispatcher()
         dispatcher.connect(
             name='index',
@@ -43,13 +42,23 @@ class HiiTrack(object):
         Event(dispatcher)
         Property(dispatcher)
         Funnel(dispatcher)
-        self.port = reactor.listenTCP(port, Site(dispatcher))
+        self.dispatcher = dispatcher
+        self.port = port
 
-    def shutdown(self):
+    def startService(self):
+        """
+        Start HiiTrack.
+        """
+        Service.startService(self)
+        cassandra.CLIENT.startService()
+        self.listener = reactor.listenTCP(self.port, Site(self.dispatcher))
+
+    def stopService(self):
         """
         Shutdown HiiTrack.
         """
-        if self.port:
-            self.port.stopListening()
+        Service.stopService(self)
         cassandra.CLIENT.stopService()
+        if self.listener:
+            self.listener.stopListening()
         log.msg("Shut down.")
