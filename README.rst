@@ -1,6 +1,6 @@
 Installation
 ------------
 
-```pip install https://github.com/hiidef/hiitrack-api/zipball/master```
+``pip install https://github.com/hiidef/hiitrack-api/zipball/master``
 
 Boom.
