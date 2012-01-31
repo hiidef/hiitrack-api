@@ -7,10 +7,13 @@ Cassandra methods for dealing with hashed keys.
 
 from ..lib.hash import pack_hash
 from twisted.internet.defer import inlineCallbacks, returnValue
-from collections import OrderedDict
+
 import struct
 import time
-
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 
 CLIENT = None
 HIGH_ID = chr(255) * 16
