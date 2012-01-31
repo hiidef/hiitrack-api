@@ -19,7 +19,7 @@ setup(
         'thrift>=0.8.0',
         'ujson>=1.15',
         'cityhash>=0.2.0',
-        'telephus>=1.0.0beta1',
+        'telephus>=1.0.0',
         'txroutes>=0.0.2'],
 
     include_package_data = True,
