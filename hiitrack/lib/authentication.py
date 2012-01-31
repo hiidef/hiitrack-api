@@ -29,8 +29,8 @@ def authenticate(method):
             assert auth_type == "Basic"
             user_name, password = base64.b64decode(auth_data).split(":", 1)
             user = UserModel(user_name)
-            stored_password = yield user.get_password()
-            assert stored_password == password
+            password_is_valid = yield user.validate_password(password)
+            assert password_is_valid
         except (AssertionError, NotFoundException):
             request.setResponseCode(401)
             request.setHeader('WWW-Authenticate', 'Basic')

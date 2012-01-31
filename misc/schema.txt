@@ -1,0 +1,3 @@
+create column family relation with default_validation_class=BytesType and key_validation_class=BytesType;
+create column family counter with default_validation_class=CounterColumnType and key_validation_class=BytesType;
+create column family user with default_validation_class=BytesType and key_validation_class=BytesType;

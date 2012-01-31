@@ -55,6 +55,34 @@ def counter_cols_to_dict(columns, prefix=None):
 
 
 @inlineCallbacks
+def set_user(key, column, value, consistency=None):
+    yield CLIENT.insert(
+        key=key,
+        column_family="user",
+        consistency=consistency,
+        column=column,
+        value=value)
+
+
+@inlineCallbacks
+def get_user(key, column, consistency=None):
+    result = yield CLIENT.get(
+        key=key,
+        column_family="user",
+        consistency=consistency,
+        column=column)
+    returnValue(result.column.value)
+
+
+@inlineCallbacks
+def delete_user(key, consistency=None):
+    yield CLIENT.remove(
+        key=key,
+        column_family="user",
+        consistency=consistency)
+
+
+@inlineCallbacks
 def get_relation(
         key,
         column=None,

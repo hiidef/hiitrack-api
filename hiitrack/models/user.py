@@ -8,10 +8,11 @@ Users have usernames, passwords, and buckets.
 import ujson
 from twisted.internet.defer import inlineCallbacks, returnValue
 from telephus.cassandra.c08.ttypes import NotFoundException
-from ..lib.cassandra import get_relation, insert_relation, delete_relation
+from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
+    get_user, set_user, delete_user
 from ..exceptions import HTTPAuthenticationRequired
 from ..models import BucketModel
-
+from hashlib import sha1
 
 def user_authorize(method):
     """
@@ -33,6 +34,10 @@ def user_authorize(method):
     return wrapper
 
 
+def password_hash(user_name, password):
+    return sha1("%s:%s" % (user_name, password)).digest()
+
+
 class UserModel(object):
     """
     Users have usernames, passwords, and buckets.
@@ -47,30 +52,28 @@ class UserModel(object):
         Returns boolean indicating whether user exists.
         """
         try:
-            yield self.get_password()
+            yield get_user(self.user_name, "hash")
             returnValue(True)
         except NotFoundException:
             returnValue(False)
 
     @inlineCallbacks
-    def get_password(self):
+    def validate_password(self, password):
         """
         Returns the password associated with the username.
         """
-        key = (self.user_name,)
-        column = ("password",)
-        value = yield get_relation(key, column)
-        returnValue(value)
+        _password_hash = yield get_user(self.user_name, "hash")
+        returnValue(_password_hash == password_hash(self.user_name, password))
 
     @inlineCallbacks
     def create(self, password):
         """
         Creates a user with the associated username and password.
         """
-        key = (self.user_name,)
-        column = ("password",)
-        value = password
-        yield insert_relation(key, column, value)
+        yield set_user(
+            self.user_name, 
+            "hash", 
+            password_hash(self.user_name, password))
 
     @inlineCallbacks
     def get_buckets(self):
@@ -95,5 +98,4 @@ class UserModel(object):
         buckets = yield self.get_buckets()
         for bucket_name in buckets:
             yield BucketModel(self.user_name, bucket_name).delete()
-        key = (self.user_name,)
-        yield delete_relation(key)
+        yield delete_user(self.user_name)
