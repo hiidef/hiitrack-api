@@ -4,7 +4,7 @@ setup(
 
     name = "hiitrack",
 
-    version = "0.0.1",
+    version = "0.1.0",
 
     packages = find_packages(),
 
@@ -20,7 +20,8 @@ setup(
         'ujson>=1.15',
         'cityhash>=0.2.0',
         'telephus>=1.0.0',
-        'txroutes>=0.0.2'],
+        'txroutes>=0.0.2',
+        'ordereddict>=1.1'],
 
     include_package_data = True,
 
