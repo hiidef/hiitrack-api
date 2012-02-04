@@ -6,7 +6,6 @@ Users have usernames, passwords, and buckets.
 """
 
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
-from twisted.python import log
 from ..lib.authentication import authenticate
 from ..lib.parameters import require
 from ..exceptions import UserException, MissingParameterException
@@ -19,6 +18,9 @@ import ujson
 
 @inlineCallbacks
 def get_user(user_name):
+    """
+    Returns basic user information.
+    """
     user = UserModel(user_name)
     buckets = yield user.get_buckets()
     for name in buckets:
@@ -26,11 +28,17 @@ def get_user(user_name):
     returnValue({"buckets": buckets})
 
 def encode(value):
+    """
+    Confirms string, encodes as utf-8
+    """
     if not value or not isinstance(value, basestring):
         raise MissingParameterException("Parameter must be string or unicode")
     return value.encode("utf-8")
 
 def encode_tuple(values):
+    """
+    Applies 'encode' to tuples.
+    """
     return encode(values[0]), encode(values[1])
 
 class User(object):
@@ -130,7 +138,7 @@ class User(object):
                 "id":request_id,
                 "error": "properties must be a list of tuples."})    
         if not all([len(x) == 2 for x in properties]):
-             returnValue({
+            returnValue({
                 "id":request_id,
                 "error": "properties must be in [key, value] format."})
         try:
@@ -139,7 +147,7 @@ class User(object):
             visitor_id = encode(visitor_id)
             event_names = [encode(x) for x in event_names]
             properties = [encode_tuple(x) for x in properties]
-        except Exception, e:
+        except:
             returnValue({
                 "id":request_id,
                 "error": "Batch request must contain base64 encoded list"
@@ -151,9 +159,8 @@ class User(object):
             event = EventModel(user_name, bucket_name, event_name)
             deferreds.append(event.add(visitor))
         yield DeferredList(deferreds)
-        deferreds = []
         for key, value in properties:
-            property_value = PropertyValueModel(user_name, bucket_name, key, value)
-            deferreds.append(property_value.add(visitor))
+            pv = PropertyValueModel(user_name, bucket_name, key, value)
+            deferreds.append(pv.add(visitor))
         yield DeferredList(deferreds)
         returnValue({"id":request.args["id"][0]})

@@ -138,5 +138,8 @@ class EventModel(object):
             deferreds.append(visitor.increment_path(event_id, self.id))
             deferreds.append(self.increment_path(event_id, _unique))
             for property_id in property_ids:
-                deferreds.append(self.increment_path(event_id, _unique, property_id))
+                deferreds.append(self.increment_path(
+                    event_id, 
+                    _unique, 
+                    property_id))
         yield DeferredList(deferreds)

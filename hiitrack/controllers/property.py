@@ -7,7 +7,7 @@ Properties are key/value pairs linked to a visitor and stored in buckets.
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from ..models import bucket_check, user_authorize
-from ..models import PropertyValueModel, VisitorModel, EventModel
+from ..models import PropertyValueModel, VisitorModel
 from ..lib.authentication import authenticate
 from ..lib.b64encode import b64encode_keys
 from ..lib.parameters import require

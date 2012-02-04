@@ -8,8 +8,7 @@ Users have usernames, passwords, and buckets.
 import ujson
 from twisted.internet.defer import inlineCallbacks, returnValue
 from telephus.cassandra.c08.ttypes import NotFoundException
-from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
-    get_user, set_user, delete_user
+from ..lib.cassandra import get_relation, get_user, set_user, delete_user
 from ..exceptions import HTTPAuthenticationRequired
 from ..models import BucketModel
 from hashlib import sha1
@@ -35,6 +34,9 @@ def user_authorize(method):
 
 
 def password_hash(user_name, password):
+    """
+    Returns a password hash.
+    """
     return sha1("%s:%s" % (user_name, password)).digest()
 
 

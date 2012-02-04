@@ -56,6 +56,9 @@ def counter_cols_to_dict(columns, prefix=None):
 
 @inlineCallbacks
 def set_user(key, column, value, consistency=None):
+    """
+    Sets a key and column in the user column family.
+    """
     yield CLIENT.insert(
         key=key,
         column_family="user",
@@ -66,6 +69,9 @@ def set_user(key, column, value, consistency=None):
 
 @inlineCallbacks
 def get_user(key, column, consistency=None):
+    """
+    Gets a key and column in the user column family.
+    """
     result = yield CLIENT.get(
         key=key,
         column_family="user",
@@ -76,6 +82,9 @@ def get_user(key, column, consistency=None):
 
 @inlineCallbacks
 def delete_user(key, consistency=None):
+    """
+    Deletes a key and column in the user column family.
+    """
     yield CLIENT.remove(
         key=key,
         column_family="user",
