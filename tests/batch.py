@@ -113,20 +113,18 @@ class BatchTestCase(unittest.TestCase):
             [property_2_key, property_2_value],
             [property_3_key, property_3_value]]
         message = b64encode(ujson.dumps([
-            self.user_name,
-            self.bucket_name,
             events,
-            properties,
-            visitor_id_1]))
+            properties]))
         request_id = randint(0, 100000)
         callback = uuid.uuid4().hex[0:10];
         qs = urlencode({
-            "message":message, 
-            "id":request_id,
-            "callback":callback})
+            "message": message, 
+            "id": request_id,
+            "callback": callback,
+            "visitor_id": visitor_id_1})
         result = yield request(
             "GET",
-            "http://127.0.0.1:8080/batch?%s" % qs)
+            "%s/batch?%s" % (self.url, qs))
         self.assertEqual(result.body[0:11], "%s(" % callback)
         self.assertEqual(result.body[-2:], ");")
         payload = result.body[11:-2]
