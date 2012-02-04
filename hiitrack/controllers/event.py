@@ -5,7 +5,7 @@
 Events are name/timestamp pairs linked to a visitor and stored in buckets.
 """
 
-from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
+from twisted.internet.defer import inlineCallbacks, returnValue
 from ..models import bucket_check, user_authorize
 from ..models import VisitorModel, EventModel
 from ..lib.authentication import authenticate
@@ -72,21 +72,8 @@ class Event(object):
             user_name,
             bucket_name,
             request.args["visitor_id"][0])
-        event_ids = yield visitor.get_event_ids()
-        path = yield visitor.get_path()
-        property_ids = yield visitor.get_property_ids()
-        unique = event.id not in event_ids
-        deferreds = [
-            event.create(),
-            event.increment_total(unique)]
-        for property_id in property_ids:
-            deferreds.append(event.increment_total(unique, property_id))
-        deferreds.append(visitor.increment_total(event.id))
-        for event_id in event_ids:
-            _unique = unique or event_id not in path[event.id]
-            deferreds.append(visitor.increment_path(event_id, event.id))
-            deferreds.append(event.increment_path(event_id, _unique))
-            for property_id in property_ids:
-                deferreds.append(event.increment_path(event_id, _unique, property_id))
-        yield DeferredList(deferreds)
+        yield event.add(visitor)
+
+
+
 

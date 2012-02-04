@@ -19,12 +19,12 @@ class BucketTestCase(unittest.TestCase):
         self.username2 = uuid.uuid4().hex
         self.password2 = uuid.uuid4().hex
         yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % self.username,
             data={"password":self.password}) 
         self.url =  "http://127.0.0.1:8080/%s" % self.username
         yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % self.username2,
             data={"password":self.password2}) 
 
@@ -48,7 +48,7 @@ class BucketTestCase(unittest.TestCase):
         BUCKETNAME = uuid.uuid4().hex
         DESCRIPTION = uuid.uuid4().hex
         result = yield request(
-            "PUT",
+            "POST",
             "%s/%s" % (self.url, BUCKETNAME),
             username=self.username,
             password=self.password,
@@ -78,7 +78,7 @@ class BucketTestCase(unittest.TestCase):
         BUCKETNAME = uuid.uuid4().hex
         DESCRIPTION = uuid.uuid4().hex
         result = yield request(
-            "PUT",
+            "POST",
             "%s/%s" % (self.url, BUCKETNAME),
             username=self.username,
             password=self.password,

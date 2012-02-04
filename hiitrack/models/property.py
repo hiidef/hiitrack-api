@@ -10,6 +10,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from ..lib.hash import pack_hash
 from ..lib.cassandra import insert_relation, get_counter, pack_timestamp, \
     insert_relation_by_id
+from .event import EventModel
 
 
 class PropertyValueModel(object):
@@ -69,3 +70,35 @@ class PropertyValueModel(object):
         prefix = self.id
         data = yield get_counter(key, prefix=prefix)
         returnValue(data)
+
+    @inlineCallbacks
+    def add(self, visitor):
+        """
+        Add the property/value to the visitor and increment global counters.
+        """    
+        yield self.create()
+        property_ids = yield visitor.get_property_ids()
+        if self.id in property_ids:
+            return
+        yield self.add_to_visitor(visitor)
+        event_total = yield visitor.get_total()
+        event_path = yield visitor.get_path()
+        for event_id in event_total:
+            event = EventModel(
+                self.user_name, 
+                self.bucket_name, 
+                event_id=event_id)
+            yield event.increment_total(
+                True,
+                property_id=self.id,
+                value=event_total[event_id])
+        for new_event_id in event_path:
+            event = EventModel(
+                self.user_name, 
+                self.bucket_name, 
+                event_id=new_event_id)
+            for event_id in event_path[new_event_id]:
+                yield event.increment_path(event_id,
+                    True,  # Unique
+                    property_id=self.id,
+                    value=event_path[event.id][event_id])

@@ -6,7 +6,7 @@ Events are name/timestamp pairs linked to a visitor and stored in buckets.
 """
 
 from ..lib.hash import pack_hash
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from ..lib.cassandra import insert_relation, increment_counter, get_counter
 from collections import defaultdict
 
@@ -117,3 +117,26 @@ class EventModel(object):
             property_id = column_id[16:]
             result[event_id][property_id] = data[column_id]
         returnValue(result)
+    
+    @inlineCallbacks
+    def add(self, visitor):
+        """
+        Add the event to the visitor and increment global counters.
+        """         
+        event_ids = yield visitor.get_event_ids()
+        path = yield visitor.get_path()
+        property_ids = yield visitor.get_property_ids()
+        unique = self.id not in event_ids
+        deferreds = [
+            self.create(),
+            self.increment_total(unique)]
+        for property_id in property_ids:
+            deferreds.append(self.increment_total(unique, property_id))
+        deferreds.append(visitor.increment_total(self.id))
+        for event_id in event_ids:
+            _unique = unique or event_id not in path[self.id]
+            deferreds.append(visitor.increment_path(event_id, self.id))
+            deferreds.append(self.increment_path(event_id, _unique))
+            for property_id in property_ids:
+                deferreds.append(self.increment_path(event_id, _unique, property_id))
+        yield DeferredList(deferreds)

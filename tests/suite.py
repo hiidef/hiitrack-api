@@ -6,4 +6,6 @@ from event import EventTestCase
 from property import PropertyTestCase
 from user import UserTestCase
 from funnel import FunnelTestCase
+from batch import BatchTestCase
+
 

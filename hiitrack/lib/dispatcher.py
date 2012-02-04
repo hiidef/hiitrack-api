@@ -7,10 +7,14 @@ from twisted.internet.defer import maybeDeferred
 from twisted.web.server import NOT_DONE_YET
 import gzip
 from cStringIO import StringIO
-import json
+import ujson
 from twisted.web import http
 from traceback import format_exc
 
+def update_if_json(request):
+    if request.getHeader("content-type") == "application/json":
+        data = ujson.loads(request.content.read())
+        request.args.update(dict([(k, [v]) for k, v in data.items()]))
 
 class Dispatcher(Resource):
     '''
@@ -47,9 +51,11 @@ class Dispatcher(Resource):
         return self.__render('GET', request)
 
     def render_POST(self, request):
+        update_if_json(request)
         return self.__render('POST', request)
 
     def render_PUT(self, request):
+        update_if_json(request)
         content_type = request.getHeader("content-type")
         if content_type == "application/x-www-form-urlencoded":
             request.args.update(http.parse_qs(request.content.read(), 1))
@@ -59,6 +65,7 @@ class Dispatcher(Resource):
         return self.__render('DELETE', request)
 
     def __render(self, method, request):
+        request.setHeader("content-type", "application/json")
         try:
             wsgi_environ = {}
             wsgi_environ['REQUEST_METHOD'] = method
@@ -83,15 +90,15 @@ class Dispatcher(Resource):
             d.addCallback(self._success_response)
             d.addErrback(self._error_response, request)
             if "callback" in request.args:
-                d.addCallback(self._add_jsonp_callback)
+                d.addCallback(self._add_jsonp_callback, request)
             d.addCallback(self._gzip_response, request)
             return NOT_DONE_YET
         else:
             request.setResponseCode(404)
-            return json.dumps({"error": "Not found"})
+            return ujson.dumps({"error": "Not found"})
 
     def _success_response(self, data):
-        return json.dumps(data)
+        return ujson.dumps(data)
 
     def _error_response(self, error, request):
         try:
@@ -99,11 +106,11 @@ class Dispatcher(Resource):
         except:
             exc = format_exc()
         if request.code == 401:
-            return json.dumps({"error": "Authorization required."})
+            return ujson.dumps({"error": "Authorization required."})
         if request.code < 400:
             request.setResponseCode(500)
             print error.getTraceback()
-        return json.dumps({"error": str(error.value), "exc": exc})
+        return ujson.dumps({"error": str(error.value), "exc": exc})
 
     def _add_jsonp_callback(self, data, request):
         return "%s(%s);" % (request.args["callback"][0], data)

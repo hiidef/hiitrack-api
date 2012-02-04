@@ -35,8 +35,8 @@ class Funnel(object):
             name='funnel',
             route='/{user_name}/{bucket_name}/funnel/{funnel_name}',
             controller=self,
-            action='put',
-            conditions={"method": "PUT"})
+            action='post',
+            conditions={"method": "POST"})
         dispatcher.connect(
             name='funnel',
             route='/{user_name}/{bucket_name}/funnel/{funnel_name}',
@@ -55,7 +55,7 @@ class Funnel(object):
     @bucket_check
     @require("event_id", "description")
     @inlineCallbacks
-    def put(self, request, user_name, bucket_name, funnel_name):
+    def post(self, request, user_name, bucket_name, funnel_name):
         """
         Create a new funnel.
         """

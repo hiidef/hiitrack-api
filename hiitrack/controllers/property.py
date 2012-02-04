@@ -88,23 +88,5 @@ class Property(object):
             user_name,
             bucket_name,
             visitor_id)
-        yield property_value.create()
-        property_ids = yield visitor.get_property_ids()
-        if property_value.id in property_ids:
-            return
-        yield property_value.add_to_visitor(visitor)
-        event_total = yield visitor.get_total()
-        event_path = yield visitor.get_path()
-        for event_id in event_total:
-            event = EventModel(user_name, bucket_name, event_id=event_id)
-            yield event.increment_total(
-                True,
-                property_id=property_value.id,
-                value=event_total[event_id])
-        for new_event_id in event_path:
-            event = EventModel(user_name, bucket_name, event_id=new_event_id)
-            for event_id in event_path[new_event_id]:
-                yield event.increment_path(event_id,
-                    True,  # Unique
-                    property_id=property_value.id,
-                    value=event_path[event.id][event_id])
+        yield property_value.add(visitor)
+

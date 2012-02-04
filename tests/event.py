@@ -20,7 +20,7 @@ class EventTestCase(unittest.TestCase):
         self.username = uuid.uuid4().hex
         self.password = uuid.uuid4().hex
         yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % self.username,
             data={"password":self.password}) 
         self.description = uuid.uuid4().hex
@@ -28,7 +28,7 @@ class EventTestCase(unittest.TestCase):
             self.username, 
             uuid.uuid4().hex)
         result = yield request(
-            "PUT",
+            "POST",
             self.url,
             username=self.username,
             password=self.password,

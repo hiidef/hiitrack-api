@@ -5,13 +5,33 @@
 Users have usernames, passwords, and buckets.
 """
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
+from twisted.python import log
 from ..lib.authentication import authenticate
 from ..lib.parameters import require
-from ..exceptions import UserException
-from ..models import UserModel, user_authorize
+from ..exceptions import UserException, MissingParameterException
+from ..models import UserModel, user_authorize, EventModel, \
+    PropertyValueModel, VisitorModel
 from ..lib.b64encode import uri_b64encode
+from base64 import b64decode
+import ujson
 
+
+@inlineCallbacks
+def get_user(user_name):
+    user = UserModel(user_name)
+    buckets = yield user.get_buckets()
+    for name in buckets:
+        buckets[name]["id"] = uri_b64encode(buckets[name]["id"])
+    returnValue({"buckets": buckets})
+
+def encode(value):
+    if not value or not isinstance(value, basestring):
+        raise MissingParameterException("Parameter must be string or unicode")
+    return value.encode("utf-8")
+
+def encode_tuple(values):
+    return encode(values[0]), encode(values[1])
 
 class User(object):
     """
@@ -20,10 +40,22 @@ class User(object):
     def __init__(self, dispatcher):
         dispatcher.connect(
             name='user',
+            route='/batch',
+            controller=self,
+            action='batch',
+            conditions={"method": "GET"})
+        dispatcher.connect(
+            name='user',
+            route='/batch',
+            controller=self,
+            action='batch',
+            conditions={"method": "POST"})
+        dispatcher.connect(
+            name='user',
             route='/{user_name}',
             controller=self,
-            action='put',
-            conditions={"method": "PUT"})
+            action='post',
+            conditions={"method": "POST"})
         dispatcher.connect(
             name='user',
             route='/{user_name}',
@@ -39,7 +71,7 @@ class User(object):
 
     @require("password")
     @inlineCallbacks
-    def put(self, request, user_name):
+    def post(self, request, user_name):
         """
         Create a new user.
         """
@@ -51,6 +83,8 @@ class User(object):
         else:
             yield user.create(request.args["password"][0])
         request.setResponseCode(201)
+        response = yield get_user(user_name)
+        returnValue(response)
 
     @authenticate
     @user_authorize
@@ -59,11 +93,8 @@ class User(object):
         """
         Information about the user.
         """
-        user = UserModel(user_name)
-        buckets = yield user.get_buckets()
-        for name in buckets:
-            buckets[name]["id"] = uri_b64encode(buckets[name]["id"])
-        returnValue({"buckets": buckets})
+        response = yield get_user(user_name)
+        returnValue(response)
 
     @authenticate
     @user_authorize
@@ -74,3 +105,55 @@ class User(object):
         """
         user = UserModel(user_name)
         yield user.delete()
+
+    @require("id", "message")
+    @inlineCallbacks
+    def batch(self, request):
+        """
+        Batched events and properties.
+        """
+        request_id = request.args["id"][0]
+        data = ujson.loads(b64decode(request.args["message"][0]))
+        if len(data) != 5:                
+            returnValue({
+                "id":request_id,
+                "error": "Batch request must contain base64 encoded list"
+                    " of five values: user_name, bucket_name, event_names"
+                    " properties, visitor_id"})
+        user_name, bucket_name, event_names, properties, visitor_id = data
+        if not isinstance(event_names, list):
+            returnValue({
+                "id":request_id,
+                "error": "event_names must be a list."})        
+        if not isinstance(properties, list):
+            returnValue({
+                "id":request_id,
+                "error": "properties must be a list of tuples."})    
+        if not all([len(x) == 2 for x in properties]):
+             returnValue({
+                "id":request_id,
+                "error": "properties must be in [key, value] format."})
+        try:
+            user_name = encode(user_name)
+            bucket_name = encode(bucket_name)
+            visitor_id = encode(visitor_id)
+            event_names = [encode(x) for x in event_names]
+            properties = [encode_tuple(x) for x in properties]
+        except Exception, e:
+            returnValue({
+                "id":request_id,
+                "error": "Batch request must contain base64 encoded list"
+                    " of five values: user_name, bucket_name, event_names"
+                    " properties, visitor_id"})
+        visitor = VisitorModel(user_name, bucket_name, visitor_id)
+        deferreds = []
+        for event_name in event_names:
+            event = EventModel(user_name, bucket_name, event_name)
+            deferreds.append(event.add(visitor))
+        yield DeferredList(deferreds)
+        deferreds = []
+        for key, value in properties:
+            property_value = PropertyValueModel(user_name, bucket_name, key, value)
+            deferreds.append(property_value.add(visitor))
+        yield DeferredList(deferreds)
+        returnValue({"id":request.args["id"][0]})

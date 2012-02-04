@@ -19,7 +19,7 @@ class FunnelTestCase(unittest.TestCase):
         self.username = uuid.uuid4().hex
         self.password = uuid.uuid4().hex
         yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % self.username,
             data={"password":self.password}) 
         self.description = uuid.uuid4().hex
@@ -27,7 +27,7 @@ class FunnelTestCase(unittest.TestCase):
             self.username, 
             uuid.uuid4().hex)
         result = yield request(
-            "PUT",
+            "POST",
             self.url,
             username=self.username,
             password=self.password,
@@ -100,7 +100,7 @@ class FunnelTestCase(unittest.TestCase):
         FUNNEL_NAME = uuid.uuid4().hex
         DESCRIPTION = uuid.uuid4().hex
         result = yield request(
-            "PUT",
+            "POST",
             "%s/funnel/%s" % (self.url, FUNNEL_NAME),
             username=self.username,
             password=self.password,
@@ -173,7 +173,7 @@ class FunnelTestCase(unittest.TestCase):
         FUNNEL_NAME = uuid.uuid4().hex
         DESCRIPTION = uuid.uuid4().hex
         result = yield request(
-            "PUT",
+            "POST",
             "%s/funnel/%s" % (self.url, FUNNEL_NAME),
             username=self.username,
             password=self.password,

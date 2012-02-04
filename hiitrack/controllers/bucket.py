@@ -23,8 +23,8 @@ class Bucket(object):
             name='bucket',
             route='/{user_name}/{bucket_name}',
             controller=self,
-            action='put',
-            conditions={"method": "PUT"})
+            action='post',
+            conditions={"method": "POST"})
         dispatcher.connect(
             name='bucket',
             route='/{user_name}/{bucket_name}',
@@ -42,7 +42,7 @@ class Bucket(object):
     @user_authorize
     @require("description")
     @inlineCallbacks
-    def put(self, request, user_name, bucket_name):
+    def post(self, request, user_name, bucket_name):
         """
         Create a new bucket.
         """

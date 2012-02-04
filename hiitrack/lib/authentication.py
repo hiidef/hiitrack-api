@@ -28,6 +28,8 @@ def authenticate(method):
             auth_type, auth_data = auth_header.split()
             assert auth_type == "Basic"
             user_name, password = base64.b64decode(auth_data).split(":", 1)
+            assert user_name
+            assert password
             user = UserModel(user_name)
             password_is_valid = yield user.validate_password(password)
             assert password_is_valid

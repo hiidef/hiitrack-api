@@ -22,7 +22,7 @@ class UserTestCase(unittest.TestCase):
         INCORRECT_PASSWORD = "123456"
         USERNAME = uuid.uuid4().hex
         result = yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % USERNAME,
             data={"password":CORRECT_PASSWORD})
         self.assertEqual(result.code, 201)
@@ -60,12 +60,12 @@ class UserTestCase(unittest.TestCase):
         USERNAME = uuid.uuid4().hex
         PASSWORD = "qwerty"
         result = yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % USERNAME,
             data={"password":PASSWORD})
         self.assertEqual(result.code, 201)
         result = yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % USERNAME,
             data={"password":PASSWORD})
         self.assertEqual(result.code, 403)
@@ -83,12 +83,12 @@ class UserTestCase(unittest.TestCase):
         PASSWORD_A = "poiuy"
         PASSWORD_B = "mnbvc"
         result = yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % USERNAME_A,
             data={"password":PASSWORD_A})
         self.assertEqual(result.code, 201)
         result = yield request(
-            "PUT",
+            "POST",
             "http://127.0.0.1:8080/%s" % USERNAME_B,
             data={"password":PASSWORD_B})
         self.assertEqual(result.code, 201)
