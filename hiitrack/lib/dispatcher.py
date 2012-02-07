@@ -11,10 +11,12 @@ import ujson
 from twisted.web import http
 from traceback import format_exc
 
+
 def update_if_json(request):
     if request.getHeader("content-type") == "application/json":
         data = ujson.loads(request.content.read())
         request.args.update(dict([(k, [v]) for k, v in data.items()]))
+
 
 class Dispatcher(Resource):
     '''
@@ -29,9 +31,7 @@ class Dispatcher(Resource):
 
     def __init__(self):
         Resource.__init__(self)
-
         self.__path = ['']
-
         self.__controllers = {}
         self.__mapper = routes.Mapper()
 
@@ -41,8 +41,14 @@ class Dispatcher(Resource):
 
     def getChild(self, name, request):
         self.__path.append(name)
-
         return self
+
+    def render(self, request):
+        if request.path[-1:] == "/":    
+            request.setHeader("location", request.path[:-1])
+            request.setResponseCode(301)
+            return ""
+        return Resource.render(self, request)
 
     def render_HEAD(self, request):
         return self.__render('HEAD', request)
