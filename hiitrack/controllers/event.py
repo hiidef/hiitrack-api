@@ -6,7 +6,7 @@ Events are name/timestamp pairs linked to a visitor and stored in buckets.
 """
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from ..models import bucket_check, user_authorize
+from ..models import bucket_check, user_authorize, bucket_create
 from ..models import VisitorModel, EventModel
 from ..lib.authentication import authenticate
 from ..lib.b64encode import b64encode_keys, b64encode_nested_keys, \
@@ -61,7 +61,7 @@ class Event(object):
             "name": event_name})
 
     @require("visitor_id")
-    @bucket_check
+    @bucket_create
     @inlineCallbacks
     def post(self, request, user_name, bucket_name, event_name):
         """

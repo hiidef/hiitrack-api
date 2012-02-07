@@ -10,7 +10,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from ..lib.authentication import authenticate
 from ..exceptions import BucketException, MissingParameterException
 from ..models import bucket_check, BucketModel, user_authorize, EventModel, \
-    PropertyValueModel, VisitorModel
+    PropertyValueModel, VisitorModel, bucket_create
 from ..lib.b64encode import b64encode_values, b64encode_nested_values
 from ..lib.parameters import require
 from base64 import b64decode
@@ -24,13 +24,6 @@ def encode(value):
     if not value or not isinstance(value, basestring):
         raise MissingParameterException("Parameter must be string or unicode")
     return value.encode("utf-8")
-
-
-def encode_tuple(values):
-    """
-    Applies 'encode' to tuples.
-    """
-    return encode(values[0]), encode(values[1])
 
 
 class Bucket(object):
@@ -110,7 +103,7 @@ class Bucket(object):
         yield BucketModel(user_name, bucket_name).delete()
 
     @require("id", "message", "visitor_id")
-    @bucket_check
+    @bucket_create
     @inlineCallbacks
     def batch(self, request, user_name, bucket_name):
         """
@@ -139,13 +132,16 @@ class Bucket(object):
                 "error": "properties must be in [key, value] format."})
         try:
             event_names = [encode(x) for x in event_names]
-            properties = [encode_tuple(x) for x in properties]
-        except:
+            properties = [(encode(x[0]), x[1]) for x in properties]
+        except Exception, e:
             returnValue({
                 "id":request_id,
                 "error": "Batch request must contain base64 encoded list"
-                    " of five values: user_name, bucket_name, event_names"
-                    " properties, visitor_id"})
+                    " of two values: event_names, properties"})
+        bucket = BucketModel(user_name, bucket_name)
+        exists = yield bucket.exists()
+        if not exists:
+            yield bucket.create("")
         visitor = VisitorModel(user_name, bucket_name, visitor_id)
         deferreds = []
         for event_name in event_names:

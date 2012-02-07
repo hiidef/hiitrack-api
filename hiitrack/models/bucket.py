@@ -11,8 +11,8 @@ import ujson
 from twisted.internet.defer import inlineCallbacks, returnValue
 from telephus.cassandra.c08.ttypes import NotFoundException
 from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
-    delete_counter
-from ..exceptions import BucketException
+    delete_counter, get_user
+from ..exceptions import BucketException, UserException
 
 
 def bucket_check(method):
@@ -37,6 +37,32 @@ def bucket_check(method):
     return wrapper
 
 
+def bucket_create(method):
+    """
+    Decorator.
+    """
+    @inlineCallbacks
+    def wrapper(*args, **kwargs):
+        """
+        Creates new bucket if bucket does not exist.
+        """
+        request = args[1]
+        # Dispatcher makes some args into kwargs.
+        user_name = kwargs["user_name"]
+        bucket_name = kwargs["bucket_name"]
+        bucket = BucketModel(user_name, bucket_name)
+        _exists = yield bucket.exists()
+        if not _exists:
+            _user_exists = yield bucket.user_exists()
+            if not _user_exists:
+                request.setResponseCode(404)
+                raise UserException("User %s does not exist." % user_name)                
+            yield BucketModel(user_name, bucket_name).create("")
+        data = yield method(*args, **kwargs)
+        returnValue(data)
+    return wrapper
+
+
 class BucketModel(object):
     """
     Buckets are a collection of events, properties, and funnels belonging to
@@ -46,6 +72,17 @@ class BucketModel(object):
     def __init__(self, user_name, bucket_name):
         self.user_name = user_name
         self.bucket_name = bucket_name
+
+    @inlineCallbacks
+    def user_exists(self):
+        """
+        Returns boolean indicating whether user exists.
+        """
+        try:
+            yield get_user(self.user_name, "hash")
+            returnValue(True)
+        except NotFoundException:
+            returnValue(False)
 
     @inlineCallbacks
     def exists(self):

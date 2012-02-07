@@ -87,7 +87,7 @@ class UserModel(object):
         result = {}
         for key, value in data.items():
             name, description = ujson.loads(value)
-            result[name] = {
+            result[name.encode("utf-8")] = {
                 "id": key,
                 "description": description}
         returnValue(result)

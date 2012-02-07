@@ -26,7 +26,7 @@ def require(*required_parameters):
                 for parameter in required_parameters:
                     assert request.args[parameter][0]
             except (KeyError, IndexError, AssertionError):
-                request.setResponseCode(403)
+                request.setResponseCode(400)
                 raise MissingParameterException("Parameter '%s' is "
                     "required." % parameter)
             return method(*args, **kwargs)

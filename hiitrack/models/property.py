@@ -22,13 +22,8 @@ class PropertyValueModel(object):
         self.user_name = user_name
         self.bucket_name = bucket_name
         self.property_name = property_name
-        self.property_value = property_value
-        self.id = pack_hash((
-            user_name,
-            bucket_name,
-            "property",
-            property_name,
-            property_value))
+        self.property_value = ujson.dumps(property_value)
+        self.id = pack_hash((property_name,)) + pack_hash((self.property_value,))
 
     @inlineCallbacks
     def create(self):
@@ -36,20 +31,15 @@ class PropertyValueModel(object):
         Create property in a bucket.
         """
         key = (self.user_name, self.bucket_name, "property")
-        column = (
-            self.user_name,
-            self.bucket_name,
-            "property",
-            self.property_name,
-            self.property_value)
+        column_id = self.id
         value = ujson.dumps((self.property_name, self.property_value))
-        yield insert_relation(key, column, value)
+        yield insert_relation_by_id(key, column_id, value)
 
     def get_name_and_value(self):
         """
         Return the name and value of the property associated with property_id.
         """
-        return (self.property_name, self.property_value)
+        return (self.property_name, ujson.loads(self.property_value))
 
     @inlineCallbacks
     def add_to_visitor(self, visitor):

@@ -6,6 +6,6 @@
 from .funnel import FunnelModel
 from .property import PropertyValueModel
 from .visitor import VisitorModel
-from .bucket import BucketModel, bucket_check
+from .bucket import BucketModel, bucket_check, bucket_create
 from .user import UserModel, user_authorize
 from .event import EventModel

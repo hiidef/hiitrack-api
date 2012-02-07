@@ -9,7 +9,7 @@ from ..lib.hash import pack_hash
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from ..lib.cassandra import insert_relation, increment_counter, get_counter
 from collections import defaultdict
-
+from ..lib.b64encode import uri_b64encode
 
 class EventModel(object):
     """
@@ -80,7 +80,7 @@ class EventModel(object):
         key = (self.user_name, self.bucket_name, "path")
         column_id = "".join([
             self.id,
-            property_id or self.id,
+            property_id or '00000000000000000000000000000000',
             event_id])
         yield increment_counter(key, column_id=column_id, value=value)
         if not unique:
@@ -98,9 +98,11 @@ class EventModel(object):
         data = yield get_counter(key, prefix=prefix)
         result = defaultdict(dict)
         for column_id in data:
-            event_id = column_id[0:16]
-            property_id = column_id[16:]
-            result[event_id][property_id] = data[column_id]
+            property_id = column_id[0:32]
+            event_id = column_id[32:]
+            if property_id == '00000000000000000000000000000000':
+                property_id = self.id
+            result[property_id][event_id] = data[column_id]
         returnValue(result)
 
     @inlineCallbacks
@@ -113,9 +115,11 @@ class EventModel(object):
         data = yield get_counter(key, prefix=prefix)
         result = defaultdict(dict)
         for column_id in data:
-            event_id = column_id[0:16]
-            property_id = column_id[16:]
-            result[event_id][property_id] = data[column_id]
+            property_id = column_id[0:32]
+            event_id = column_id[32:]
+            if property_id == '00000000000000000000000000000000':
+                property_id = self.id
+            result[property_id][event_id] = data[column_id]
         returnValue(result)
     
     @inlineCallbacks

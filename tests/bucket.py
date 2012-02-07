@@ -109,6 +109,39 @@ class BucketTestCase(unittest.TestCase):
         self.assertEqual(result.code, 200)
 
     @inlineCallbacks
+    def test_dynamic_create(self):
+        BUCKET_NAME_1 = uuid.uuid4().hex
+        BUCKET_NAME_2 = uuid.uuid4().hex
+        EVENT_NAME = uuid.uuid4().hex
+        PROPERTY_NAME = uuid.uuid4().hex
+        PROPERTY_VALUE = uuid.uuid4().hex
+        VISITOR_ID = uuid.uuid4().hex
+        yield request(
+            "POST",
+            "%s/%s/event/%s" % (self.url, BUCKET_NAME_1, EVENT_NAME),
+            data={"visitor_id":VISITOR_ID})
+        result = yield request(
+            "GET",
+            "%s/%s" % (self.url, BUCKET_NAME_1),
+            username=self.username,
+            password=self.password)        
+        self.assertEqual(result.code, 200)
+        yield request(
+            "POST",
+            "%s/%s/property/%s/%s" % (
+                self.url, 
+                BUCKET_NAME_2, 
+                PROPERTY_NAME, 
+                PROPERTY_VALUE),
+            data={"visitor_id":VISITOR_ID})
+        result = yield request(
+            "GET",
+            "%s/%s" % (self.url, BUCKET_NAME_2),
+            username=self.username,
+            password=self.password)        
+        self.assertEqual(result.code, 200)
+
+    @inlineCallbacks
     def test_missing(self):
         BUCKETNAME = uuid.uuid4().hex
         result = yield request(

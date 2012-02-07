@@ -6,7 +6,7 @@ Properties are key/value pairs linked to a visitor and stored in buckets.
 """
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from ..models import bucket_check, user_authorize
+from ..models import bucket_check, user_authorize, bucket_create
 from ..models import PropertyValueModel, VisitorModel
 from ..lib.authentication import authenticate
 from ..lib.b64encode import b64encode_keys
@@ -66,8 +66,8 @@ class Property(object):
             "value": value,
             "total": b64encode_keys(total)})
 
-    @bucket_check
     @require("visitor_id")
+    @bucket_create
     @inlineCallbacks
     def post(self,
             request,
