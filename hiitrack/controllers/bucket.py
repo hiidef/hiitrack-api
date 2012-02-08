@@ -15,6 +15,7 @@ from ..lib.b64encode import b64encode_values, b64encode_nested_values
 from ..lib.parameters import require
 from base64 import b64decode
 import ujson
+from ..lib.profiler import profile
 
 
 def encode(value):
@@ -59,6 +60,7 @@ class Bucket(object):
     @authenticate
     @user_authorize
     @require("description")
+    @profile
     @inlineCallbacks
     def post(self, request, user_name, bucket_name):
         """
@@ -76,6 +78,7 @@ class Bucket(object):
     @authenticate
     @user_authorize
     @bucket_check
+    @profile
     @inlineCallbacks
     def get(self, request, user_name, bucket_name):
         """
@@ -95,6 +98,7 @@ class Bucket(object):
     @authenticate
     @user_authorize
     @bucket_check
+    @profile
     @inlineCallbacks
     def delete(self, request, user_name, bucket_name):
         """
@@ -104,6 +108,7 @@ class Bucket(object):
 
     @require("id", "message", "visitor_id")
     @bucket_create
+    @profile
     @inlineCallbacks
     def batch(self, request, user_name, bucket_name):
         """

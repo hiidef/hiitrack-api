@@ -11,7 +11,7 @@ from ..models import PropertyValueModel, VisitorModel
 from ..lib.authentication import authenticate
 from ..lib.b64encode import b64encode_keys
 from ..lib.parameters import require
-
+from ..lib.profiler import profile
 
 class Property(object):
     """
@@ -44,6 +44,7 @@ class Property(object):
     @authenticate
     @user_authorize
     @bucket_check
+    @profile
     @inlineCallbacks
     def get(self,
             request,
@@ -68,6 +69,7 @@ class Property(object):
 
     @require("visitor_id")
     @bucket_create
+    @profile
     @inlineCallbacks
     def post(self,
             request,

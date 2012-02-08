@@ -9,6 +9,7 @@ setup(
     packages = find_packages(),
 
     dependency_links = [
+        'https://github.com/hiidef/pylogd/zipball/master#pylogd-0.3',
         'https://github.com/steiza/txroutes/zipball/master#egg=txroutes-0.0.2',
         'https://github.com/hiidef/Telephus/zipball/master#egg=telephus-1.0.0',
         'https://github.com/hiidef/cityhash/zipball/master#egg=cityhash-0.2.0'],
@@ -21,7 +22,8 @@ setup(
         'cityhash>=0.2.0',
         'telephus>=1.0.0',
         'txroutes>=0.0.2',
-        'ordereddict>=1.1'],
+        'ordereddict>=1.1',
+        'pylogd>=0.3'],
 
     include_package_data = True,
 

@@ -11,6 +11,7 @@ from ..lib.hash import pack_hash
 from ..lib.cassandra import insert_relation, get_counter, pack_timestamp, \
     insert_relation_by_id
 from .event import EventModel
+from ..lib.profiler import profile
 
 
 class PropertyValueModel(object):
@@ -22,9 +23,10 @@ class PropertyValueModel(object):
         self.user_name = user_name
         self.bucket_name = bucket_name
         self.property_name = property_name
-        self.property_value = ujson.dumps(property_value)
-        self.id = pack_hash((property_name,)) + pack_hash((self.property_value,))
+        self.property_value = property_value
+        self.id = pack_hash((property_name,)) + pack_hash((ujson.dumps(self.property_value),))
 
+    @profile
     @inlineCallbacks
     def create(self):
         """
@@ -39,8 +41,9 @@ class PropertyValueModel(object):
         """
         Return the name and value of the property associated with property_id.
         """
-        return (self.property_name, ujson.loads(self.property_value))
+        return (self.property_name, self.property_value)
 
+    @profile
     @inlineCallbacks
     def add_to_visitor(self, visitor):
         """
@@ -51,6 +54,7 @@ class PropertyValueModel(object):
         value = pack_timestamp()
         yield insert_relation_by_id(key, column_id, value)
 
+    @profile
     @inlineCallbacks
     def get_total(self):
         """
@@ -61,6 +65,7 @@ class PropertyValueModel(object):
         data = yield get_counter(key, prefix=prefix)
         returnValue(data)
 
+    @profile
     @inlineCallbacks
     def add(self, visitor):
         """

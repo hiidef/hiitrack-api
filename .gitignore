@@ -1,5 +1,6 @@
 env/
 /cassandra/
+tests/config.py
 nginx.conf
 hiitrack.sh
 

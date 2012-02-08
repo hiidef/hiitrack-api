@@ -11,8 +11,9 @@ from ..lib.parameters import require
 from ..exceptions import UserException
 from ..models import UserModel, user_authorize
 from ..lib.b64encode import uri_b64encode
+from ..lib.profiler import profile
 
-
+@profile
 @inlineCallbacks
 def get_user(user_name):
     """
@@ -55,6 +56,7 @@ class User(object):
             conditions={"method": "DELETE"})
 
     @require("password")
+    @profile
     @inlineCallbacks
     def post(self, request, user_name):
         """
@@ -73,6 +75,7 @@ class User(object):
 
     @authenticate
     @user_authorize
+    @profile
     @inlineCallbacks
     def get(self, request, user_name):
         """
@@ -83,6 +86,7 @@ class User(object):
 
     @authenticate
     @user_authorize
+    @profile
     @inlineCallbacks
     def delete(self, request, user_name):
         """

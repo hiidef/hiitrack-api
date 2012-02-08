@@ -7,6 +7,9 @@ from lib.agent import request
 from hiitrack import HiiTrack
 import uuid
 import ujson
+from base64 import b64encode
+from urllib import urlencode
+
 
 class BucketTestCase(unittest.TestCase):
     
@@ -112,6 +115,7 @@ class BucketTestCase(unittest.TestCase):
     def test_dynamic_create(self):
         BUCKET_NAME_1 = uuid.uuid4().hex
         BUCKET_NAME_2 = uuid.uuid4().hex
+        BUCKET_NAME_3 = uuid.uuid4().hex
         EVENT_NAME = uuid.uuid4().hex
         PROPERTY_NAME = uuid.uuid4().hex
         PROPERTY_VALUE = uuid.uuid4().hex
@@ -137,6 +141,24 @@ class BucketTestCase(unittest.TestCase):
         result = yield request(
             "GET",
             "%s/%s" % (self.url, BUCKET_NAME_2),
+            username=self.username,
+            password=self.password)        
+        self.assertEqual(result.code, 200)
+        events = [EVENT_NAME]
+        properties = [[PROPERTY_NAME, PROPERTY_VALUE]]
+        message = b64encode(ujson.dumps([
+            events,
+            properties]))
+        qs = urlencode({
+            "message": message, 
+            "id": 12345,
+            "visitor_id": VISITOR_ID})
+        result = yield request(
+            "GET",
+            "%s/%s/batch?%s" % (self.url, BUCKET_NAME_3, qs))
+        result = yield request(
+            "GET",
+            "%s/%s" % (self.url, BUCKET_NAME_3),
             username=self.username,
             password=self.password)        
         self.assertEqual(result.code, 200)

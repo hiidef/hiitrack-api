@@ -12,6 +12,8 @@ from ..lib.cassandra import get_relation, get_user, set_user, delete_user
 from ..exceptions import HTTPAuthenticationRequired
 from ..models import BucketModel
 from hashlib import sha1
+from ..lib.profiler import profile
+
 
 def user_authorize(method):
     """
@@ -47,7 +49,8 @@ class UserModel(object):
 
     def __init__(self, user_name):
         self.user_name = user_name
-
+    
+    @profile
     @inlineCallbacks
     def exists(self):
         """
@@ -58,7 +61,8 @@ class UserModel(object):
             returnValue(True)
         except NotFoundException:
             returnValue(False)
-
+    
+    @profile
     @inlineCallbacks
     def validate_password(self, password):
         """
@@ -67,6 +71,7 @@ class UserModel(object):
         _password_hash = yield get_user(self.user_name, "hash")
         returnValue(_password_hash == password_hash(self.user_name, password))
 
+    @profile
     @inlineCallbacks
     def create(self, password):
         """
@@ -77,6 +82,7 @@ class UserModel(object):
             "hash", 
             password_hash(self.user_name, password))
 
+    @profile
     @inlineCallbacks
     def get_buckets(self):
         """
@@ -92,6 +98,7 @@ class UserModel(object):
                 "description": description}
         returnValue(result)
 
+    @profile
     @inlineCallbacks
     def delete(self):
         """

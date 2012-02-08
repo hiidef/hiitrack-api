@@ -7,13 +7,13 @@ Cassandra methods for dealing with hashed keys.
 
 from ..lib.hash import pack_hash
 from twisted.internet.defer import inlineCallbacks, returnValue
-
 import struct
 import time
 try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
+from ..lib.profiler import profile
 
 CLIENT = None
 HIGH_ID = chr(255) * 16
@@ -54,6 +54,7 @@ def counter_cols_to_dict(columns, prefix=None):
             for x in columns])
 
 
+@profile
 @inlineCallbacks
 def set_user(key, column, value, consistency=None):
     """
@@ -67,6 +68,7 @@ def set_user(key, column, value, consistency=None):
         value=value)
 
 
+@profile
 @inlineCallbacks
 def get_user(key, column, consistency=None):
     """
@@ -80,6 +82,7 @@ def get_user(key, column, consistency=None):
     returnValue(result.column.value)
 
 
+@profile
 @inlineCallbacks
 def delete_user(key, consistency=None):
     """
@@ -91,6 +94,7 @@ def delete_user(key, consistency=None):
         consistency=consistency)
 
 
+@profile
 @inlineCallbacks
 def get_relation(
         key,
@@ -131,6 +135,7 @@ def get_relation(
         returnValue(cols_to_dict(result, prefix=prefix))
 
 
+@profile
 @inlineCallbacks
 def insert_relation(key, column, value, consistency=None):
     """
@@ -147,6 +152,7 @@ def insert_relation(key, column, value, consistency=None):
     returnValue(column)
 
 
+@profile
 @inlineCallbacks
 def insert_relation_by_id(key, column_id, value, consistency=None):
     """
@@ -160,6 +166,7 @@ def insert_relation_by_id(key, column_id, value, consistency=None):
         value=value)
 
 
+@profile
 @inlineCallbacks
 def delete_relation(key, column=None, column_id=None, consistency=None):
     """
@@ -184,6 +191,7 @@ def delete_relation(key, column=None, column_id=None, consistency=None):
             consistency=consistency)
 
 
+@profile
 @inlineCallbacks
 def get_counter(key, consistency=None, prefix=None):
     """
@@ -205,6 +213,7 @@ def get_counter(key, consistency=None, prefix=None):
     returnValue(counter_cols_to_dict(result, prefix=prefix))
 
 
+@profile
 @inlineCallbacks
 def increment_counter(
         key,
@@ -233,6 +242,7 @@ def increment_counter(
         raise TypeError("column composite key or column_id is required.")
 
 
+@profile
 @inlineCallbacks
 def delete_counter(key, column=None, column_id=None, consistency=None):
     """

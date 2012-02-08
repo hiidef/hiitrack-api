@@ -10,6 +10,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from ..lib.cassandra import insert_relation, increment_counter, get_counter
 from collections import defaultdict
 from ..lib.b64encode import uri_b64encode
+from ..lib.profiler import profile
+
 
 class EventModel(object):
     """
@@ -27,6 +29,7 @@ class EventModel(object):
         else:
             raise ValueError("EventModel requires 'event_name' or 'event_id'.")
 
+    @profile
     @inlineCallbacks
     def create(self):
         """
@@ -37,6 +40,7 @@ class EventModel(object):
         value = self.event_name
         yield insert_relation(key, column, value)
 
+    @profile
     @inlineCallbacks
     def increment_total(self, unique, property_id=None, value=1):
         """
@@ -54,6 +58,7 @@ class EventModel(object):
             column_id = "".join([property_id, self.id])
             yield increment_counter(key, column_id=column_id)
 
+    @profile
     @inlineCallbacks
     def get_total(self):
         """
@@ -63,6 +68,7 @@ class EventModel(object):
         data = yield get_counter(key, prefix=self.id)
         returnValue(data)
 
+    @profile
     @inlineCallbacks
     def get_unique_total(self):
         """
@@ -72,6 +78,7 @@ class EventModel(object):
         data = yield get_counter(key, prefix=self.id)
         returnValue(data)
 
+    @profile
     @inlineCallbacks
     def increment_path(self, event_id, unique, property_id=None, value=1):
         """
@@ -88,6 +95,7 @@ class EventModel(object):
         key = (self.user_name, self.bucket_name, "unique_path")
         yield increment_counter(key, column_id=column_id)
 
+    @profile
     @inlineCallbacks
     def get_path(self):
         """
@@ -105,6 +113,7 @@ class EventModel(object):
             result[property_id][event_id] = data[column_id]
         returnValue(result)
 
+    @profile
     @inlineCallbacks
     def get_unique_path(self):
         """
@@ -121,7 +130,8 @@ class EventModel(object):
                 property_id = self.id
             result[property_id][event_id] = data[column_id]
         returnValue(result)
-    
+
+    @profile 
     @inlineCallbacks
     def add(self, visitor):
         """

@@ -9,6 +9,7 @@ import ujson
 from twisted.internet.defer import inlineCallbacks, returnValue
 from ..lib.cassandra import get_relation, insert_relation, delete_relation
 from ..lib.b64encode import uri_b64encode, uri_b64decode
+from ..lib.profiler import profile
 
 
 class FunnelModel(object):
@@ -21,6 +22,7 @@ class FunnelModel(object):
         self.bucket_name = bucket_name
         self.funnel_name = funnel_name
 
+    @profile
     @inlineCallbacks
     def create(self, description, event_ids):
         """
@@ -34,6 +36,7 @@ class FunnelModel(object):
         funnel_id = yield insert_relation(key, column, value)
         returnValue(funnel_id)
 
+    @profile
     @inlineCallbacks
     def get_description_event_ids(self):
         """
@@ -47,6 +50,7 @@ class FunnelModel(object):
             description,
             [uri_b64decode(str(x)) for x in encoded_event_ids]))
 
+    @profile
     @inlineCallbacks
     def delete(self):
         """

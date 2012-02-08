@@ -9,6 +9,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from ..lib.hash import pack_hash
 from ..lib.cassandra import get_relation, get_counter, increment_counter
 from collections import defaultdict
+from ..lib.profiler import profile
 
 
 class VisitorModel(object):
@@ -21,6 +22,7 @@ class VisitorModel(object):
         self.bucket_name = bucket_name
         self.id = pack_hash((user_name, bucket_name, visitor_id))
 
+    @profile
     @inlineCallbacks
     def get_property_ids(self):
         """
@@ -30,7 +32,8 @@ class VisitorModel(object):
         prefix = self.id
         data = yield get_relation(key, prefix=prefix)
         returnValue(data.keys())
-
+    
+    @profile
     @inlineCallbacks
     def get_event_ids(self):
         """
@@ -41,6 +44,7 @@ class VisitorModel(object):
         data = yield get_counter(key, prefix=prefix)
         returnValue(data.keys())
 
+    @profile
     @inlineCallbacks
     def increment_path(self, event_id, new_event_id):
         """
@@ -50,6 +54,7 @@ class VisitorModel(object):
         column_id = "".join([self.id, new_event_id, event_id])
         yield increment_counter(key, column_id=column_id)
 
+    @profile
     @inlineCallbacks
     def get_path(self):
         """
@@ -64,7 +69,8 @@ class VisitorModel(object):
             event_id = column_id[16:]
             result[new_event_id][event_id] = data[column_id]
         returnValue(result)
-
+    
+    @profile
     @inlineCallbacks
     def increment_total(self, event_id):
         """
@@ -73,7 +79,8 @@ class VisitorModel(object):
         key = (self.user_name, self.bucket_name, "visitor_event")
         column_id = "".join([self.id, event_id])
         yield increment_counter(key, column_id=column_id)
-
+    
+    @profile
     @inlineCallbacks
     def get_total(self):
         """

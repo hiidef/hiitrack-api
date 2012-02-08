@@ -15,6 +15,7 @@ from ..exceptions import MissingParameterException
 from ..lib.b64encode import uri_b64decode, uri_b64encode, \
     b64encode_nested_keys, b64encode_double_nested_keys
 from ..lib.parameters import require
+from ..lib.profiler import profile
 
 
 def encode_nested_lists(dictionary):
@@ -54,6 +55,7 @@ class Funnel(object):
     @user_authorize
     @bucket_check
     @require("event_id", "description")
+    @profile
     @inlineCallbacks
     def post(self, request, user_name, bucket_name, funnel_name):
         """
@@ -72,6 +74,7 @@ class Funnel(object):
     @authenticate
     @user_authorize
     @bucket_check
+    @profile
     @inlineCallbacks
     def get_saved_funnel(self, request, user_name, bucket_name, funnel_name):
         """
@@ -159,6 +162,7 @@ class Funnel(object):
     @authenticate
     @user_authorize
     @bucket_check
+    @profile
     @inlineCallbacks
     def delete(self, request, user_name, bucket_name, funnel_name):
         """

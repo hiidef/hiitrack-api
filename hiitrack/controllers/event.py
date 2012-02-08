@@ -12,6 +12,7 @@ from ..lib.authentication import authenticate
 from ..lib.b64encode import b64encode_keys, b64encode_nested_keys, \
     uri_b64encode
 from ..lib.parameters import require
+from ..lib.profiler import profile
 
 
 class Event(object):
@@ -42,6 +43,7 @@ class Event(object):
     @authenticate
     @user_authorize
     @bucket_check
+    @profile
     @inlineCallbacks
     def get(self, request, user_name, bucket_name, event_name):
         """
@@ -62,6 +64,7 @@ class Event(object):
 
     @require("visitor_id")
     @bucket_create
+    @profile
     @inlineCallbacks
     def post(self, request, user_name, bucket_name, event_name):
         """

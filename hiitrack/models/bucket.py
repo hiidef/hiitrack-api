@@ -13,6 +13,7 @@ from telephus.cassandra.c08.ttypes import NotFoundException
 from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
     delete_counter, get_user
 from ..exceptions import BucketException, UserException
+from ..lib.profiler import profile
 
 
 def bucket_check(method):
@@ -73,6 +74,7 @@ class BucketModel(object):
         self.user_name = user_name
         self.bucket_name = bucket_name
 
+    @profile
     @inlineCallbacks
     def user_exists(self):
         """
@@ -84,6 +86,7 @@ class BucketModel(object):
         except NotFoundException:
             returnValue(False)
 
+    @profile
     @inlineCallbacks
     def exists(self):
         """
@@ -97,6 +100,7 @@ class BucketModel(object):
             returnValue(False)
         returnValue(True)
 
+    @profile
     @inlineCallbacks
     def create(self, description):
         """
@@ -107,6 +111,7 @@ class BucketModel(object):
         value = ujson.dumps((self.bucket_name, description))
         yield insert_relation(key, column, value)
 
+    @profile
     @inlineCallbacks
     def get_property_ids(self):
         """
@@ -116,6 +121,7 @@ class BucketModel(object):
         data = yield get_relation(key)
         returnValue(data.keys())
 
+    @profile
     @inlineCallbacks
     def get_properties(self):
         """
@@ -130,6 +136,7 @@ class BucketModel(object):
             properties[key][value] = property_id
         returnValue(properties)
 
+    @profile
     @inlineCallbacks
     def get_events(self):
         """
@@ -139,6 +146,7 @@ class BucketModel(object):
         data = yield get_relation(key)
         returnValue(dict([(v, k) for k, v in data.items()]))
 
+    @profile
     @inlineCallbacks
     def get_name_and_description(self):
         """
@@ -150,6 +158,7 @@ class BucketModel(object):
         bucket_name, description = ujson.loads(data)
         returnValue((bucket_name, description))
 
+    @profile
     @inlineCallbacks
     def delete(self):
         """
