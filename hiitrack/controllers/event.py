@@ -29,12 +29,6 @@ class Event(object):
             conditions={"method": "POST"})
         dispatcher.connect(
             name='event',
-            route='/{user_name}/{bucket_name}/event/{event_name}/jsonp',
-            controller=self,
-            action='post',
-            conditions={"method": "GET"})
-        dispatcher.connect(
-            name='event',
             route='/{user_name}/{bucket_name}/event/{event_name}',
             controller=self,
             action='get',

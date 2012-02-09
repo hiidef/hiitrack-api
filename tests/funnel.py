@@ -9,6 +9,8 @@ import uuid
 import ujson
 from pprint import pprint
 from urllib import quote
+from collections import defaultdict
+
 
 class FunnelTestCase(unittest.TestCase):
     
@@ -56,7 +58,11 @@ class FunnelTestCase(unittest.TestCase):
             password=self.password)
         self.assertEqual(result.code, 200)
         result = ujson.loads(result.body)["properties"]
-        returnValue(result)
+        response = defaultdict(dict)
+        for property_name in result:
+            for property_value in result[property_name]:
+                response[property_name][property_value["value"]] = property_value["id"]
+        returnValue(response)
 
     @inlineCallbacks
     def get_event_dict(self):
@@ -66,7 +72,8 @@ class FunnelTestCase(unittest.TestCase):
             username=self.username,
             password=self.password)
         self.assertEqual(result.code, 200)
-        result = ujson.loads(result.body)["events"]
+        events = ujson.loads(result.body)["events"].items()
+        result = dict([(k, v["id"]) for k,v in events])
         returnValue(result)
 
     @inlineCallbacks

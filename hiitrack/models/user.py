@@ -90,13 +90,8 @@ class UserModel(object):
         """
         key = (self.user_name, "bucket")
         data = yield get_relation(key)
-        result = {}
-        for key, value in data.items():
-            name, description = ujson.loads(value)
-            result[name.encode("utf-8")] = {
-                "id": key,
-                "description": description}
-        returnValue(result)
+        response = dict([(x, ujson.decode(data[x])) for x in data])
+        returnValue(response)
 
     @profile
     @inlineCallbacks

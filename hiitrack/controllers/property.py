@@ -29,13 +29,6 @@ class Property(object):
         dispatcher.connect(
             name='property',
             route=('/{user_name}/{bucket_name}/property/'
-                '{property_name}/{property_value}/jsonp'),
-            controller=self,
-            action='post',
-            conditions={"method": "GET"})
-        dispatcher.connect(
-            name='property',
-            route=('/{user_name}/{bucket_name}/property/'
                 '{property_name}/{property_value}'),
             controller=self,
             action='get',

@@ -11,9 +11,10 @@ import ujson
 from twisted.internet.defer import inlineCallbacks, returnValue
 from telephus.cassandra.c08.ttypes import NotFoundException
 from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
-    delete_counter, get_user
+    delete_counter, get_user, insert_relation_by_id
 from ..exceptions import BucketException, UserException
 from ..lib.profiler import profile
+from .property import PropertyValueModel
 
 
 def bucket_check(method):
@@ -58,7 +59,7 @@ def bucket_create(method):
             if not _user_exists:
                 request.setResponseCode(404)
                 raise UserException("User %s does not exist." % user_name)                
-            yield BucketModel(user_name, bucket_name).create("")
+            yield BucketModel(user_name, bucket_name).create(bucket_name)
         data = yield method(*args, **kwargs)
         returnValue(data)
     return wrapper
@@ -93,9 +94,9 @@ class BucketModel(object):
         Verify bucket exists.
         """
         key = (self.user_name, "bucket")
-        column = (self.bucket_name,)
+        column_id = self.bucket_name
         try:
-            yield get_relation(key, column)
+            yield get_relation(key, column_id=column_id)
         except NotFoundException:
             returnValue(False)
         returnValue(True)
@@ -107,9 +108,9 @@ class BucketModel(object):
         Create bucket for username.
         """
         key = (self.user_name, "bucket")
-        column = (self.bucket_name,)
-        value = ujson.dumps((self.bucket_name, description))
-        yield insert_relation(key, column, value)
+        column_id = self.bucket_name
+        value = ujson.dumps({"description":description})
+        yield insert_relation_by_id(key, column_id, value)
 
     @profile
     @inlineCallbacks
@@ -130,10 +131,12 @@ class BucketModel(object):
         """
         key = (self.user_name, self.bucket_name, "property")
         data = yield get_relation(key)
-        properties = defaultdict(dict)
+        properties = defaultdict(list)
         for property_id in data:
-            key, value = ujson.loads(data[property_id])
-            properties[key][value] = property_id
+            name, value = ujson.loads(data[property_id])
+            properties[name].append({
+                "value":value, 
+                "id":property_id})
         returnValue(properties)
 
     @profile
@@ -144,19 +147,18 @@ class BucketModel(object):
         """
         key = (self.user_name, self.bucket_name, "event")
         data = yield get_relation(key)
-        returnValue(dict([(v, k) for k, v in data.items()]))
+        returnValue(dict([(data[i], {"id":i}) for i in data]))
 
     @profile
     @inlineCallbacks
-    def get_name_and_description(self):
+    def get_description(self):
         """
         Return bucket description.
         """
         key = (self.user_name, "bucket")
-        column = (self.bucket_name,)
-        data = yield get_relation(key, column)
-        bucket_name, description = ujson.loads(data)
-        returnValue((bucket_name, description))
+        column_id = self.bucket_name
+        data = yield get_relation(key, column_id=column_id)
+        returnValue(ujson.loads(data)["description"])
 
     @profile
     @inlineCallbacks
@@ -165,8 +167,8 @@ class BucketModel(object):
         Delete the bucket.
         """
         key = (self.user_name, "bucket")
-        column = (self.bucket_name,)
-        yield delete_relation(key, column)
+        column_id = self.bucket_name
+        yield delete_relation(key, column_id=column_id)
         keys = [
             (self.user_name, self.bucket_name, "property"),
             (self.user_name, self.bucket_name, "event"),

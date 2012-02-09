@@ -25,6 +25,11 @@ def authenticate(method):
         try:
             auth_header = request.getHeader("Authorization")
             assert auth_header
+        except:
+            request.setResponseCode(401)
+            request.setHeader('WWW-Authenticate', 'Basic')
+            raise HTTPAuthenticationRequired("Authentication required.")
+        try:
             auth_type, auth_data = auth_header.split()
             assert auth_type == "Basic"
             user_name, password = base64.b64decode(auth_data).split(":", 1)
@@ -35,7 +40,8 @@ def authenticate(method):
             assert password_is_valid
         except (AssertionError, NotFoundException):
             request.setResponseCode(401)
-            request.setHeader('WWW-Authenticate', 'Basic')
+            if request.getHeader("X-Requested-With") != "XMLHttpRequest":
+                request.setHeader('WWW-Authenticate', 'Basic')
             raise HTTPAuthenticationRequired("Authentication required.")
         else:
             request.username = user_name

@@ -44,8 +44,8 @@ class BucketTestCase(unittest.TestCase):
             username=self.username2,
             password=self.password2) 
         # Despite beforeShutdown hooks, Twisted complains.
-        self.hiitrack.stopService() 
- 
+        self.hiitrack.stopService()              
+
     @inlineCallbacks
     def test_unauthorized(self):
         BUCKETNAME = uuid.uuid4().hex
@@ -102,8 +102,6 @@ class BucketTestCase(unittest.TestCase):
         self.assertEqual(result.code, 200)
         buckets = ujson.decode(result.body)["buckets"]
         self.assertTrue(BUCKETNAME in buckets)
-        self.assertEqual(buckets[BUCKETNAME]["description"], DESCRIPTION)
-        self.assertEqual(DESCRIPTION, returned_description)
         result = yield request(
             "DELETE",
             "%s/%s" % (self.url, BUCKETNAME),
@@ -160,7 +158,7 @@ class BucketTestCase(unittest.TestCase):
             "GET",
             "%s/%s" % (self.url, BUCKET_NAME_3),
             username=self.username,
-            password=self.password)        
+            password=self.password)     
         self.assertEqual(result.code, 200)
 
     @inlineCallbacks

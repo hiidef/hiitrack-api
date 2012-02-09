@@ -9,8 +9,9 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from ..lib.authentication import authenticate
 from ..lib.parameters import require
 from ..exceptions import UserException
-from ..models import UserModel, user_authorize
-from ..lib.b64encode import uri_b64encode
+from ..models import UserModel, user_authorize, BucketModel
+from ..lib.b64encode import uri_b64encode, b64encode_values, \
+    b64encode_nested_values
 from ..lib.profiler import profile
 
 @profile
@@ -21,8 +22,6 @@ def get_user(user_name):
     """
     user = UserModel(user_name)
     buckets = yield user.get_buckets()
-    for name in buckets:
-        buckets[name]["id"] = uri_b64encode(buckets[name]["id"])
     returnValue({"buckets": buckets})
 
 class User(object):

@@ -11,7 +11,7 @@ from ..lib.authentication import authenticate
 from ..exceptions import BucketException, MissingParameterException
 from ..models import bucket_check, BucketModel, user_authorize, EventModel, \
     PropertyValueModel, VisitorModel, bucket_create
-from ..lib.b64encode import b64encode_values, b64encode_nested_values
+from ..lib.b64encode import b64encode_values, uri_b64encode
 from ..lib.parameters import require
 from base64 import b64decode
 import ujson
@@ -85,12 +85,16 @@ class Bucket(object):
         Information about the bucket.
         """
         bucket = BucketModel(user_name, bucket_name)
-        name, description = yield bucket.get_name_and_description()
-        data = yield bucket.get_properties()
-        properties = b64encode_nested_values(data)
-        data = yield bucket.get_events()
-        events = b64encode_values(data)
+        description = yield bucket.get_description()
+        properties = yield bucket.get_properties()
+        for key, values in properties.items():
+            for value in values:
+                value["id"] = uri_b64encode(value["id"])
+        events = yield bucket.get_events()
+        for key, value in events.items():
+            value["id"] = uri_b64encode(value["id"])
         returnValue({
+            "bucket_name": bucket_name,
             "description": description,
             "properties": properties,
             "events": events})

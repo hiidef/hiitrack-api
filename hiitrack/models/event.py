@@ -13,6 +13,9 @@ from ..lib.b64encode import uri_b64encode
 from ..lib.profiler import profile
 
 
+_32_BYTE_FILLER = chr(0)*32
+
+
 class EventModel(object):
     """
     Events are name/timestamp pairs linked to a visitor and stored in buckets.
@@ -87,7 +90,7 @@ class EventModel(object):
         key = (self.user_name, self.bucket_name, "path")
         column_id = "".join([
             self.id,
-            property_id or '00000000000000000000000000000000',
+            property_id or _32_BYTE_FILLER,
             event_id])
         yield increment_counter(key, column_id=column_id, value=value)
         if not unique:
@@ -108,7 +111,7 @@ class EventModel(object):
         for column_id in data:
             property_id = column_id[0:32]
             event_id = column_id[32:]
-            if property_id == '00000000000000000000000000000000':
+            if property_id == _32_BYTE_FILLER:
                 property_id = self.id
             result[property_id][event_id] = data[column_id]
         returnValue(result)
@@ -126,7 +129,7 @@ class EventModel(object):
         for column_id in data:
             property_id = column_id[0:32]
             event_id = column_id[32:]
-            if property_id == '00000000000000000000000000000000':
+            if property_id == _32_BYTE_FILLER:
                 property_id = self.id
             result[property_id][event_id] = data[column_id]
         returnValue(result)

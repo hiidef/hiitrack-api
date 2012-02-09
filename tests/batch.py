@@ -11,6 +11,7 @@ from base64 import b64encode
 from random import randint
 from urllib import urlencode
 from urllib import quote
+from collections import defaultdict
 
 
 class BatchTestCase(unittest.TestCase):
@@ -60,7 +61,11 @@ class BatchTestCase(unittest.TestCase):
             password=self.password)
         self.assertEqual(result.code, 200)
         result = ujson.loads(result.body)["properties"]
-        returnValue(result)
+        response = defaultdict(dict)
+        for property_name in result:
+            for property_value in result[property_name]:
+                response[property_name][property_value["value"]] = property_value["id"]
+        returnValue(response)
 
     @inlineCallbacks
     def get_event_dict(self):
@@ -70,7 +75,8 @@ class BatchTestCase(unittest.TestCase):
             username=self.user_name,
             password=self.password)
         self.assertEqual(result.code, 200)
-        result = ujson.loads(result.body)["events"]
+        events = ujson.loads(result.body)["events"].items()
+        result = dict([(k, v["id"]) for k,v in events])
         returnValue(result)
 
     @inlineCallbacks
