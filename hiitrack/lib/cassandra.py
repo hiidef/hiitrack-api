@@ -14,9 +14,12 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 from ..lib.profiler import profile
+from collections import defaultdict
 
 CLIENT = None
 HIGH_ID = chr(255) * 16
+RELATION_INSERT_BUFFER = defaultdict(dict)
+COUNTER_INSERT_BUFFER = defaultdict(dict)
 
 
 def pack_timestamp():
@@ -55,12 +58,11 @@ def counter_cols_to_dict(columns, prefix=None):
 
 
 @profile
-@inlineCallbacks
 def set_user(key, column, value, consistency=None):
     """
     Sets a key and column in the user column family.
     """
-    yield CLIENT.insert(
+    return CLIENT.insert(
         key=key,
         column_family="user",
         consistency=consistency,
@@ -83,12 +85,11 @@ def get_user(key, column, consistency=None):
 
 
 @profile
-@inlineCallbacks
 def delete_user(key, consistency=None):
     """
     Deletes a key and column in the user column family.
     """
-    yield CLIENT.remove(
+    return CLIENT.remove(
         key=key,
         column_family="user",
         consistency=consistency)
@@ -136,30 +137,28 @@ def get_relation(
 
 
 @profile
-@inlineCallbacks
 def insert_relation(key, column, value, consistency=None):
     """
     Insert a column into the relation column family using a hashed
     column tuple.
     """
-    column = pack_hash(column)
-    yield CLIENT.insert(
-        key=pack_hash(key),
-        column_family="relation",
-        consistency=consistency,
-        column=column,
-        value=value)
-    returnValue(column)
+    key = pack_hash(key)
+    column_id = pack_hash(column)
+    return _insert_relation(key, column_id, value, consistency)
 
 
 @profile
-@inlineCallbacks
 def insert_relation_by_id(key, column_id, value, consistency=None):
     """
     Insert a column into the relation column family using a column ID.
     """
-    yield CLIENT.insert(
-        key=pack_hash(key),
+    key = pack_hash(key)
+    return _insert_relation(key, column_id, value, consistency)
+
+
+def _insert_relation(key, column_id, value, consistency):
+    return CLIENT.insert(
+        key=key,
         column_family="relation",
         consistency=consistency,
         column=column_id,
@@ -167,25 +166,24 @@ def insert_relation_by_id(key, column_id, value, consistency=None):
 
 
 @profile
-@inlineCallbacks
 def delete_relation(key, column=None, column_id=None, consistency=None):
     """
     Delete a row or column from the relation CF.
     """
     if column_id:
-        yield CLIENT.remove(
+        return CLIENT.remove(
             key=pack_hash(key),
             column_family="relation",
             column=column_id,
             consistency=consistency)
     elif column:
-        yield CLIENT.remove(
+        return CLIENT.remove(
             key=pack_hash(key),
             column_family="relation",
             column=pack_hash(column),
             consistency=consistency)
     else:
-        yield CLIENT.remove(
+        return CLIENT.remove(
             key=pack_hash(key),
             column_family="relation",
             consistency=consistency)
@@ -214,7 +212,6 @@ def get_counter(key, consistency=None, prefix=None):
 
 
 @profile
-@inlineCallbacks
 def increment_counter(
         key,
         column=None,
@@ -225,14 +222,14 @@ def increment_counter(
     Increment a counter specified by a hashed column tuple or a column_id.
     """
     if column_id:
-        yield CLIENT.add(
+        return CLIENT.add(
             key=pack_hash(key),
             column_family="counter",
             consistency=consistency,
             column=column_id,
             value=value)
     elif column:
-        yield CLIENT.add(
+        return CLIENT.add(
             key=pack_hash(key),
             column_family="counter",
             consistency=consistency,
@@ -243,25 +240,24 @@ def increment_counter(
 
 
 @profile
-@inlineCallbacks
 def delete_counter(key, column=None, column_id=None, consistency=None):
     """
     Delete a row or column from the counter CF.
     """
     if column_id:
-        yield CLIENT.remove_counter(
+        return CLIENT.remove_counter(
             key=pack_hash(key),
             column_family="counter",
             column=column_id,
             consistency=consistency)
     elif column:
-        yield CLIENT.remove_counter(
+        return CLIENT.remove_counter(
             key=pack_hash(key),
             column_family="counter",
             column=pack_hash(column),
             consistency=consistency)
     else:
-        yield CLIENT.remove_counter(
+        return CLIENT.remove_counter(
             key=pack_hash(key),
             column_family="counter",
             consistency=consistency)

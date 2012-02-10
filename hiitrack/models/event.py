@@ -33,7 +33,6 @@ class EventModel(object):
             raise ValueError("EventModel requires 'event_name' or 'event_id'.")
 
     @profile
-    @inlineCallbacks
     def create(self):
         """
         Bucket event.
@@ -41,7 +40,7 @@ class EventModel(object):
         key = (self.user_name, self.bucket_name, "event")
         column = (self.user_name, self.bucket_name, "event", self.event_name)
         value = self.event_name
-        yield insert_relation(key, column, value)
+        return insert_relation(key, column, value)
 
     @profile
     @inlineCallbacks
@@ -62,24 +61,20 @@ class EventModel(object):
         yield DeferredList(deferreds)
 
     @profile
-    @inlineCallbacks
     def get_total(self):
         """
         Get the total count of event_id.
         """
         key = (self.user_name, self.bucket_name, "event")
-        data = yield get_counter(key, prefix=self.id)
-        returnValue(data)
+        return get_counter(key, prefix=self.id)
 
     @profile
-    @inlineCallbacks
     def get_unique_total(self):
         """
         Get the total unique count of event_id.
         """
         key = (self.user_name, self.bucket_name, "unique_event")
-        data = yield get_counter(key, prefix=self.id)
-        returnValue(data)
+        return get_counter(key, prefix=self.id)
 
     @profile
     @inlineCallbacks

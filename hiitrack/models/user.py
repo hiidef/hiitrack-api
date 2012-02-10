@@ -72,12 +72,11 @@ class UserModel(object):
         returnValue(_password_hash == password_hash(self.user_name, password))
 
     @profile
-    @inlineCallbacks
     def create(self, password):
         """
         Creates a user with the associated username and password.
         """
-        yield set_user(
+        return set_user(
             self.user_name, 
             "hash", 
             password_hash(self.user_name, password))

@@ -27,7 +27,6 @@ class PropertyValueModel(object):
         self.id = pack_hash((property_name,)) + pack_hash((ujson.dumps(self.property_value),))
 
     @profile
-    @inlineCallbacks
     def create(self):
         """
         Create property in a bucket.
@@ -35,7 +34,7 @@ class PropertyValueModel(object):
         key = (self.user_name, self.bucket_name, "property")
         column_id = self.id
         value = ujson.dumps((self.property_name, self.property_value))
-        yield insert_relation_by_id(key, column_id, value)
+        return insert_relation_by_id(key, column_id, value)
 
     def get_name_and_value(self):
         """
@@ -44,15 +43,13 @@ class PropertyValueModel(object):
         return (self.property_name, self.property_value)
 
     @profile
-    @inlineCallbacks
     def get_total(self):
         """
         Get the events associated with this property.
         """
         key = (self.user_name, self.bucket_name, "property")
         prefix = self.id
-        data = yield get_counter(key, prefix=prefix)
-        returnValue(data)
+        return get_counter(key, prefix=prefix)
 
     @profile
     @inlineCallbacks

@@ -46,7 +46,6 @@ class VisitorModel(object):
         returnValue(data.keys())
 
     @profile
-    @inlineCallbacks
     def add_property(self, _property):
         """
         Add property to visitor.
@@ -54,17 +53,16 @@ class VisitorModel(object):
         key = (self.user_name, self.bucket_name, "visitor_property")
         column_id = "".join([self.id, _property.id])
         value = pack_timestamp()
-        yield insert_relation_by_id(key, column_id, value)
+        return insert_relation_by_id(key, column_id, value)
 
     @profile
-    @inlineCallbacks
     def increment_path(self, event_id, new_event_id):
         """
         Increment the path of visitor events from event_id -> new_event_id.
         """
         key = (self.user_name, self.bucket_name, "visitor_path")
         column_id = "".join([self.id, new_event_id, event_id])
-        yield increment_counter(key, column_id=column_id)
+        return increment_counter(key, column_id=column_id)
 
     @profile
     @inlineCallbacks
@@ -83,22 +81,19 @@ class VisitorModel(object):
         returnValue(result)
     
     @profile
-    @inlineCallbacks
     def increment_total(self, event_id):
         """
         Increment the count of visitor events.
         """
         key = (self.user_name, self.bucket_name, "visitor_event")
         column_id = "".join([self.id, event_id])
-        yield increment_counter(key, column_id=column_id)
+        return increment_counter(key, column_id=column_id)
     
     @profile
-    @inlineCallbacks
     def get_total(self):
         """
         Get the count of visitor events.
         """
         key = (self.user_name, self.bucket_name, "visitor_event")
         prefix = self.id
-        data = yield get_counter(key, prefix=prefix)
-        returnValue(data)
+        return get_counter(key, prefix=prefix)

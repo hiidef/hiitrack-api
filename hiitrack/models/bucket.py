@@ -102,7 +102,6 @@ class BucketModel(object):
         returnValue(True)
 
     @profile
-    @inlineCallbacks
     def create(self, description):
         """
         Create bucket for username.
@@ -110,7 +109,7 @@ class BucketModel(object):
         key = (self.user_name, "bucket")
         column_id = self.bucket_name
         value = ujson.dumps({"description":description})
-        yield insert_relation_by_id(key, column_id, value)
+        return insert_relation_by_id(key, column_id, value)
 
     @profile
     @inlineCallbacks
@@ -175,7 +174,7 @@ class BucketModel(object):
             (self.user_name, self.bucket_name, "funnel"),
             (self.user_name, self.bucket_name, "visitor_property")]
         for key in keys:
-            yield delete_relation(key)
+            deferreds.append(delete_relation(key))
         keys = [
             (self.user_name, self.bucket_name, "property"),
             (self.user_name, self.bucket_name, "event"),
@@ -185,5 +184,5 @@ class BucketModel(object):
             (self.user_name, self.bucket_name, "visitor_event"),
             (self.user_name, self.bucket_name, "visitor_path")]
         for key in keys:
-            yield delete_counter(key)
+            deferreds.append(delete_counter(key))
         yield DeferredList(deferreds)

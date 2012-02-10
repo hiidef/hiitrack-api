@@ -23,7 +23,6 @@ class FunnelModel(object):
         self.funnel_name = funnel_name
 
     @profile
-    @inlineCallbacks
     def create(self, description, event_ids):
         """
         Create funnel.
@@ -33,8 +32,7 @@ class FunnelModel(object):
         value = ujson.dumps((
             description,
             [uri_b64encode(x) for x in event_ids]))
-        funnel_id = yield insert_relation(key, column, value)
-        returnValue(funnel_id)
+        return insert_relation(key, column, value)
 
     @profile
     @inlineCallbacks
@@ -51,11 +49,10 @@ class FunnelModel(object):
             [uri_b64decode(str(x)) for x in encoded_event_ids]))
 
     @profile
-    @inlineCallbacks
     def delete(self):
         """
         Delete the funnel.
         """
         key = (self.user_name, self.bucket_name, "funnel")
         column = (self.funnel_name,)
-        yield delete_relation(key, column)
+        return delete_relation(key, column)
