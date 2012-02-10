@@ -6,7 +6,7 @@ Users have usernames, passwords, and buckets.
 """
 
 import ujson
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from telephus.cassandra.c08.ttypes import NotFoundException
 from ..lib.cassandra import get_relation, get_user, set_user, delete_user
 from ..exceptions import HTTPAuthenticationRequired
@@ -100,6 +100,6 @@ class UserModel(object):
         Delete a user.
         """
         buckets = yield self.get_buckets()
-        for bucket_name in buckets:
-            yield BucketModel(self.user_name, bucket_name).delete()
-        yield delete_user(self.user_name)
+        deferreds = [BucketModel(self.user_name, x).delete() for x in buckets]
+        deferreds.append(delete_user(self.user_name))
+        yield DeferredList(deferreds)

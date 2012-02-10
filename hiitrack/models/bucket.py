@@ -8,7 +8,7 @@ a user.
 
 from collections import defaultdict
 import ujson
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from telephus.cassandra.c08.ttypes import NotFoundException
 from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
     delete_counter, get_user, insert_relation_by_id
@@ -168,7 +168,7 @@ class BucketModel(object):
         """
         key = (self.user_name, "bucket")
         column_id = self.bucket_name
-        yield delete_relation(key, column_id=column_id)
+        deferreds = [delete_relation(key, column_id=column_id)]
         keys = [
             (self.user_name, self.bucket_name, "property"),
             (self.user_name, self.bucket_name, "event"),
@@ -186,3 +186,4 @@ class BucketModel(object):
             (self.user_name, self.bucket_name, "visitor_path")]
         for key in keys:
             yield delete_counter(key)
+        yield DeferredList(deferreds)

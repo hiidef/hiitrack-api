@@ -6,7 +6,7 @@ Properties are key/value pairs linked to a visitor and stored in buckets.
 """
 
 import ujson
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from ..lib.hash import pack_hash
 from ..lib.cassandra import insert_relation, get_counter, pack_timestamp, \
     insert_relation_by_id
@@ -45,17 +45,6 @@ class PropertyValueModel(object):
 
     @profile
     @inlineCallbacks
-    def add_to_visitor(self, visitor):
-        """
-        Add property to visitor.
-        """
-        key = (self.user_name, self.bucket_name, "visitor_property")
-        column_id = "".join([visitor.id, self.id])
-        value = pack_timestamp()
-        yield insert_relation_by_id(key, column_id, value)
-
-    @profile
-    @inlineCallbacks
     def get_total(self):
         """
         Get the events associated with this property.
@@ -71,29 +60,31 @@ class PropertyValueModel(object):
         """
         Add the property/value to the visitor and increment global counters.
         """    
-        yield self.create()
         property_ids = yield visitor.get_property_ids()
         if self.id in property_ids:
             return
-        yield self.add_to_visitor(visitor)
-        event_total = yield visitor.get_total()
-        event_path = yield visitor.get_path()
+        results = yield DeferredList([visitor.get_total(), visitor.get_path()])
+        event_total, event_path = [x[1] for x in results]
+        deferreds = []
         for event_id in event_total:
             event = EventModel(
                 self.user_name, 
                 self.bucket_name, 
                 event_id=event_id)
-            yield event.increment_total(
+            deferreds.append(event.increment_total(
                 True,
                 property_id=self.id,
-                value=event_total[event_id])
+                value=event_total[event_id]))
         for new_event_id in event_path:
             event = EventModel(
                 self.user_name, 
                 self.bucket_name, 
                 event_id=new_event_id)
             for event_id in event_path[new_event_id]:
-                yield event.increment_path(event_id,
+                deferreds.append(event.increment_path(event_id,
                     True,  # Unique
                     property_id=self.id,
-                    value=event_path[event.id][event_id])
+                    value=event_path[event.id][event_id]))
+        deferreds.append(self.create())
+        deferreds.append(visitor.add_property(self))
+        yield DeferredList(deferreds)

@@ -7,7 +7,8 @@ Visitors are stored in buckets and can have properties and events.
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from ..lib.hash import pack_hash
-from ..lib.cassandra import get_relation, get_counter, increment_counter
+from ..lib.cassandra import get_relation, get_counter, increment_counter, \
+    insert_relation_by_id, pack_timestamp
 from collections import defaultdict
 from ..lib.profiler import profile
 
@@ -43,6 +44,17 @@ class VisitorModel(object):
         prefix = self.id
         data = yield get_counter(key, prefix=prefix)
         returnValue(data.keys())
+
+    @profile
+    @inlineCallbacks
+    def add_property(self, _property):
+        """
+        Add property to visitor.
+        """
+        key = (self.user_name, self.bucket_name, "visitor_property")
+        column_id = "".join([self.id, _property.id])
+        value = pack_timestamp()
+        yield insert_relation_by_id(key, column_id, value)
 
     @profile
     @inlineCallbacks

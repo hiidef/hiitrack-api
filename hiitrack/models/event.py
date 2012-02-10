@@ -51,15 +51,15 @@ class EventModel(object):
         """
         key = (self.user_name, self.bucket_name, "event")
         column_id = "".join([self.id, property_id or self.id])
-        yield increment_counter(key, column_id=column_id, value=value)
-        if not unique:
-            return
-        key = (self.user_name, self.bucket_name, "unique_event")
-        yield increment_counter(key, column_id=column_id)
-        if property_id:
-            key = (self.user_name, self.bucket_name, "property")
-            column_id = "".join([property_id, self.id])
-            yield increment_counter(key, column_id=column_id)
+        deferreds = [increment_counter(key, column_id=column_id, value=value)]
+        if unique:        
+            key = (self.user_name, self.bucket_name, "unique_event")
+            deferreds.append(increment_counter(key, column_id=column_id))
+            if property_id:
+                key = (self.user_name, self.bucket_name, "property")
+                column_id = "".join([property_id, self.id])
+                deferreds.append(increment_counter(key, column_id=column_id))
+        yield DeferredList(deferreds)
 
     @profile
     @inlineCallbacks
@@ -92,12 +92,12 @@ class EventModel(object):
             self.id,
             property_id or _32_BYTE_FILLER,
             event_id])
-        yield increment_counter(key, column_id=column_id, value=value)
-        if not unique:
-            return
-        key = (self.user_name, self.bucket_name, "unique_path")
-        yield increment_counter(key, column_id=column_id)
-
+        deferreds = [increment_counter(key, column_id=column_id, value=value)]
+        if unique:
+            key = (self.user_name, self.bucket_name, "unique_path")
+            deferreds.append(increment_counter(key, column_id=column_id))
+        yield DeferredList(deferreds)
+        
     @profile
     @inlineCallbacks
     def get_path(self):
@@ -139,10 +139,13 @@ class EventModel(object):
     def add(self, visitor):
         """
         Add the event to the visitor and increment global counters.
-        """         
-        event_ids = yield visitor.get_event_ids()
-        path = yield visitor.get_path()
-        property_ids = yield visitor.get_property_ids()
+        """
+        deferreds = [
+            visitor.get_event_ids(), 
+            visitor.get_path(), 
+            visitor.get_property_ids()]
+        results = yield DeferredList(deferreds)
+        event_ids, path, property_ids = [x[1] for x in results]
         unique = self.id not in event_ids
         deferreds = [
             self.create(),
