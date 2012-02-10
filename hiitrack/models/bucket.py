@@ -109,7 +109,7 @@ class BucketModel(object):
         key = (self.user_name, "bucket")
         column_id = self.bucket_name
         value = ujson.dumps({"description":description})
-        return insert_relation_by_id(key, column_id, value)
+        return insert_relation_by_id(key, column_id, value, commit=True)
 
     @profile
     @inlineCallbacks

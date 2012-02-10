@@ -9,7 +9,7 @@ import ujson
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from ..lib.hash import pack_hash
 from ..lib.cassandra import insert_relation, get_counter, pack_timestamp, \
-    insert_relation_by_id
+    insert_relation_by_id, BUFFER
 from .event import EventModel
 from ..lib.profiler import profile
 
@@ -84,4 +84,5 @@ class PropertyValueModel(object):
                     value=event_path[event.id][event_id]))
         deferreds.append(self.create())
         deferreds.append(visitor.add_property(self))
+        BUFFER.flush()
         yield DeferredList(deferreds)

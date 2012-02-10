@@ -7,7 +7,8 @@ Events are name/timestamp pairs linked to a visitor and stored in buckets.
 
 from ..lib.hash import pack_hash
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
-from ..lib.cassandra import insert_relation, increment_counter, get_counter
+from ..lib.cassandra import insert_relation, increment_counter, get_counter, \
+    BUFFER
 from collections import defaultdict
 from ..lib.b64encode import uri_b64encode
 from ..lib.profiler import profile
@@ -157,4 +158,5 @@ class EventModel(object):
                     event_id, 
                     _unique, 
                     property_id))
+        BUFFER.flush()
         yield DeferredList(deferreds)

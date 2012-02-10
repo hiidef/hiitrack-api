@@ -6,7 +6,8 @@ Cassandra methods for dealing with hashed keys.
 """
 
 from ..lib.hash import pack_hash
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, \
+    DeferredList
 import struct
 import time
 try:
@@ -16,10 +17,62 @@ except ImportError:
 from ..lib.profiler import profile
 from collections import defaultdict
 
+
 CLIENT = None
 HIGH_ID = chr(255) * 16
-RELATION_INSERT_BUFFER = defaultdict(dict)
-COUNTER_INSERT_BUFFER = defaultdict(dict)
+
+
+class Buffer(object):
+    def __init__(self):
+        self.relation = defaultdict(dict)
+        self.counter = defaultdict(lambda:defaultdict(lambda:0))
+        self.relation_deferreds = []
+        self.counter_deferreds = []
+
+    @inlineCallbacks
+    def flush_relation(self):
+        relation, self.relation = self.relation, defaultdict(dict)
+        relation_deferreds, self.relation_deferreds = self.relation_deferreds, []
+        try:
+            yield CLIENT.batch_multikey_insert("relation", relation)
+            for deferred in relation_deferreds:
+                deferred.callback(True)
+        except Exception, error:
+            for deferred in relation_deferreds:
+                deferred.errback(error)
+            raise
+
+    @inlineCallbacks
+    def flush_counter(self):
+        counter, self.counter = self.counter, defaultdict(lambda:defaultdict(lambda:0))
+        counter_deferreds, self.counter_deferreds = self.counter_deferreds, []
+        try:
+            yield CLIENT.batch_multikey_add("counter", counter)
+            for deferred in counter_deferreds:
+                deferred.callback(True)
+        except Exception, error:
+            for deferred in counter_deferreds:
+                deferred.errback(error)
+            raise
+
+    def insert_relation(self, key, column_id, value):
+        self.relation[key][column_id] = value
+        deferred = Deferred()
+        self.relation_deferreds.append(deferred)
+        return deferred
+
+    def increment_counter(self, key, column_id, value):    
+        self.counter[key][column_id] += value
+        deferred = Deferred()
+        self.counter_deferreds.append(deferred)
+        return deferred
+
+    def flush(self):
+        self.flush_relation()
+        self.flush_counter()
+
+
+BUFFER = Buffer()
 
 
 def pack_timestamp():
@@ -137,32 +190,30 @@ def get_relation(
 
 
 @profile
-def insert_relation(key, column, value, consistency=None):
+def insert_relation(key, column, value, commit=False):
     """
     Insert a column into the relation column family using a hashed
     column tuple.
     """
     key = pack_hash(key)
     column_id = pack_hash(column)
-    return _insert_relation(key, column_id, value, consistency)
+    return _insert_relation(key, column_id, value, commit)
 
 
 @profile
-def insert_relation_by_id(key, column_id, value, consistency=None):
+def insert_relation_by_id(key, column_id, value, commit=False):
     """
     Insert a column into the relation column family using a column ID.
     """
     key = pack_hash(key)
-    return _insert_relation(key, column_id, value, consistency)
+    return _insert_relation(key, column_id, value, commit)
 
 
-def _insert_relation(key, column_id, value, consistency):
-    return CLIENT.insert(
-        key=key,
-        column_family="relation",
-        consistency=consistency,
-        column=column_id,
-        value=value)
+def _insert_relation(key, column_id, value, commit):
+    deferred = BUFFER.insert_relation(key, column_id, value)
+    if commit:
+        BUFFER.flush_relation()
+    return deferred
 
 
 @profile
@@ -215,28 +266,18 @@ def get_counter(key, consistency=None, prefix=None):
 def increment_counter(
         key,
         column=None,
-        consistency=None,
         column_id=None,
-        value=1):
+        value=1,
+        commit=False):
     """
     Increment a counter specified by a hashed column tuple or a column_id.
     """
-    if column_id:
-        return CLIENT.add(
-            key=pack_hash(key),
-            column_family="counter",
-            consistency=consistency,
-            column=column_id,
-            value=value)
-    elif column:
-        return CLIENT.add(
-            key=pack_hash(key),
-            column_family="counter",
-            consistency=consistency,
-            column=pack_hash(column),
-            value=value)
-    else:
-        raise TypeError("column composite key or column_id is required.")
+    key = pack_hash(key)
+    column_id = column_id or pack_hash(column)
+    deferred = BUFFER.increment_counter(key, column_id, value)
+    if commit:
+        BUFFER.flush_counter()
+    return deferred
 
 
 @profile

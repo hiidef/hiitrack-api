@@ -32,7 +32,7 @@ class FunnelModel(object):
         value = ujson.dumps((
             description,
             [uri_b64encode(x) for x in event_ids]))
-        return insert_relation(key, column, value)
+        return insert_relation(key, column, value, commit=True)
 
     @profile
     @inlineCallbacks
