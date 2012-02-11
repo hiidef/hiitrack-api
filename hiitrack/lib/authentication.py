@@ -10,7 +10,9 @@ from telephus.cassandra.c08.ttypes import NotFoundException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from ..exceptions import HTTPAuthenticationRequired
 from ..models import UserModel
+from ..lib.ttldict import TTLDict
 
+TTL_CACHE = TTLDict(ttl=30)
 
 def authenticate(method):
     """
@@ -36,8 +38,12 @@ def authenticate(method):
             assert user_name
             assert password
             user = UserModel(user_name)
-            password_is_valid = yield user.validate_password(password)
-            assert password_is_valid
+            try:
+                assert TTL_CACHE[user_name] == password
+            except KeyError:
+                password_is_valid = yield user.validate_password(password)
+                assert password_is_valid
+                TTL_CACHE[user_name] = password
         except (AssertionError, NotFoundException):
             request.setResponseCode(401)
             if request.getHeader("X-Requested-With") != "XMLHttpRequest":

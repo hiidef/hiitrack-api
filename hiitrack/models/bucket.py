@@ -10,11 +10,15 @@ from collections import defaultdict
 import ujson
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from telephus.cassandra.c08.ttypes import NotFoundException
+from pylru import lrucache
 from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
     delete_counter, get_user, insert_relation_by_id
 from ..exceptions import BucketException, UserException
 from ..lib.profiler import profile
 from .property import PropertyValueModel
+
+
+LRU_CACHE = lrucache(1000)
 
 
 def bucket_check(method):
@@ -28,12 +32,13 @@ def bucket_check(method):
         """
         request = args[1]
         # Dispatcher makes some args into kwargs.
-        user_name = kwargs["user_name"]
-        bucket_name = kwargs["bucket_name"]
-        _exists = yield BucketModel(user_name, bucket_name).exists()
-        if not _exists:
-            request.setResponseCode(404)
-            raise BucketException("Bucket %s does not exist." % bucket_name)
+        bucket = BucketModel(kwargs["user_name"],  kwargs["bucket_name"])
+        if not bucket.cached():
+            _exists = yield bucket.exists()
+            if not _exists:
+                request.setResponseCode(404)
+                raise BucketException("Bucket %s does not "
+                    "exist." % bucket.bucket_name)
         data = yield method(*args, **kwargs)
         returnValue(data)
     return wrapper
@@ -53,13 +58,14 @@ def bucket_create(method):
         user_name = kwargs["user_name"]
         bucket_name = kwargs["bucket_name"]
         bucket = BucketModel(user_name, bucket_name)
-        _exists = yield bucket.exists()
-        if not _exists:
-            _user_exists = yield bucket.user_exists()
-            if not _user_exists:
-                request.setResponseCode(404)
-                raise UserException("User %s does not exist." % user_name)                
-            yield BucketModel(user_name, bucket_name).create(bucket_name)
+        if not bucket.cached():
+            _exists = yield bucket.exists()
+            if not _exists:
+                _user_exists = yield bucket.user_exists()
+                if not _user_exists:
+                    request.setResponseCode(404)
+                    raise UserException("User %s does not exist." % user_name)               
+                yield bucket.create(bucket_name)
         data = yield method(*args, **kwargs)
         returnValue(data)
     return wrapper
@@ -74,6 +80,7 @@ class BucketModel(object):
     def __init__(self, user_name, bucket_name):
         self.user_name = user_name
         self.bucket_name = bucket_name
+        self.cache_key = "|".join((user_name, bucket_name))
 
     @profile
     @inlineCallbacks
@@ -86,6 +93,9 @@ class BucketModel(object):
             returnValue(True)
         except NotFoundException:
             returnValue(False)
+
+    def cached(self):
+        return self.cache_key in LRU_CACHE
 
     @profile
     @inlineCallbacks
@@ -106,6 +116,7 @@ class BucketModel(object):
         """
         Create bucket for username.
         """
+        LRU_CACHE[self.cache_key] = None
         key = (self.user_name, "bucket")
         column_id = self.bucket_name
         value = ujson.dumps({"description":description})
@@ -165,6 +176,7 @@ class BucketModel(object):
         """
         Delete the bucket.
         """
+        del LRU_CACHE[self.cache_key]
         key = (self.user_name, "bucket")
         column_id = self.bucket_name
         deferreds = [delete_relation(key, column_id=column_id)]
