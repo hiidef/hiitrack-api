@@ -47,7 +47,7 @@ class PropertyValueModel(object):
         """
         Get the events associated with this property.
         """
-        key = (self.user_name, self.bucket_name, "property")
+        key = (self.user_name, self.bucket_name, "property", self.id[0])
         prefix = self.id
         return get_counter(key, prefix=prefix)
 

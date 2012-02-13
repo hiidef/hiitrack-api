@@ -49,14 +49,14 @@ class EventModel(object):
         """
         Increment the total count of event_id.
         """
-        key = (self.user_name, self.bucket_name, "event")
+        key = (self.user_name, self.bucket_name, "event", self.id[0])
         column_id = "".join([self.id, property_id or self.id])
         deferreds = [increment_counter(key, column_id=column_id, value=value)]
         if unique:        
-            key = (self.user_name, self.bucket_name, "unique_event")
+            key = (self.user_name, self.bucket_name, "unique_event", self.id[0])
             deferreds.append(increment_counter(key, column_id=column_id))
             if property_id:
-                key = (self.user_name, self.bucket_name, "property")
+                key = (self.user_name, self.bucket_name, "property", property_id[0])
                 column_id = "".join([property_id, self.id])
                 deferreds.append(increment_counter(key, column_id=column_id))
         yield DeferredList(deferreds)
@@ -66,7 +66,7 @@ class EventModel(object):
         """
         Get the total count of event_id.
         """
-        key = (self.user_name, self.bucket_name, "event")
+        key = (self.user_name, self.bucket_name, "event", self.id[0])
         return get_counter(key, prefix=self.id)
 
     @profile
@@ -74,7 +74,7 @@ class EventModel(object):
         """
         Get the total unique count of event_id.
         """
-        key = (self.user_name, self.bucket_name, "unique_event")
+        key = (self.user_name, self.bucket_name, "unique_event", self.id[0])
         return get_counter(key, prefix=self.id)
 
     @profile
@@ -83,14 +83,14 @@ class EventModel(object):
         """
         Increment the path of events from event_id -> new_event_id.
         """
-        key = (self.user_name, self.bucket_name, "path")
+        key = (self.user_name, self.bucket_name, "path", self.id[0])
         column_id = "".join([
             self.id,
             property_id or _32_BYTE_FILLER,
             event_id])
         deferreds = [increment_counter(key, column_id=column_id, value=value)]
         if unique:
-            key = (self.user_name, self.bucket_name, "unique_path")
+            key = (self.user_name, self.bucket_name, "unique_path", self.id[0])
             deferreds.append(increment_counter(key, column_id=column_id))
         yield DeferredList(deferreds)
         
@@ -100,7 +100,7 @@ class EventModel(object):
         """
         Get the path of events.
         """
-        key = (self.user_name, self.bucket_name, "path")
+        key = (self.user_name, self.bucket_name, "path", self.id[0])
         prefix = self.id
         data = yield get_counter(key, prefix=prefix)
         result = defaultdict(dict)
@@ -118,7 +118,7 @@ class EventModel(object):
         """
         Get the unique path of visitor events.
         """
-        key = (self.user_name, self.bucket_name, "unique_path")
+        key = (self.user_name, self.bucket_name, "unique_path", self.id[0])
         prefix = self.id
         data = yield get_counter(key, prefix=prefix)
         result = defaultdict(dict)
@@ -136,12 +136,7 @@ class EventModel(object):
         """
         Add the event to the visitor and increment global counters.
         """
-        deferreds = [
-            visitor.get_event_ids(), 
-            visitor.get_path(), 
-            visitor.get_property_ids()]
-        results = yield DeferredList(deferreds)
-        event_ids, path, property_ids = [x[1] for x in results]
+        event_ids, path, property_ids = yield visitor.get_metadata()
         unique = self.id not in event_ids
         deferreds = [
             self.create(),

@@ -30,6 +30,6 @@ class TTLDict(dict):
     def __getitem__(self, key):
         now = time.time()
         while self.timestamps and self.timestamps[0][1] + self.ttl < now:
-            key = self.timestamps.pop()[0]
+            key = self.timestamps.pop(0)[0]
             del self[key]
         return super(TTLDict, self).__getitem__(key)

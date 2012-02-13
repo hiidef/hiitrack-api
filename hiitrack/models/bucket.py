@@ -12,7 +12,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from telephus.cassandra.c08.ttypes import NotFoundException
 from pylru import lrucache
 from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
-    delete_counter, get_user, insert_relation_by_id
+    delete_counter, get_user, insert_relation_by_id, delete_relations, delete_counters
 from ..exceptions import BucketException, UserException
 from ..lib.profiler import profile
 from .property import PropertyValueModel
@@ -179,22 +179,26 @@ class BucketModel(object):
         del LRU_CACHE[self.cache_key]
         key = (self.user_name, "bucket")
         column_id = self.bucket_name
-        deferreds = [delete_relation(key, column_id=column_id)]
+        deferreds = []
+        deferreds.append(delete_relation(key, column_id=column_id))
         keys = [
-            (self.user_name, self.bucket_name, "property"),
-            (self.user_name, self.bucket_name, "event"),
-            (self.user_name, self.bucket_name, "funnel"),
-            (self.user_name, self.bucket_name, "visitor_property")]
-        for key in keys:
-            deferreds.append(delete_relation(key))
-        keys = [
-            (self.user_name, self.bucket_name, "property"),
-            (self.user_name, self.bucket_name, "event"),
-            (self.user_name, self.bucket_name, "unique_event"),
-            (self.user_name, self.bucket_name, "path"),
-            (self.user_name, self.bucket_name, "unique_path"),
-            (self.user_name, self.bucket_name, "visitor_event"),
-            (self.user_name, self.bucket_name, "visitor_path")]
-        for key in keys:
-            deferreds.append(delete_counter(key))
+            (self.user_name, self.bucket_name, "event"), 
+            (self.user_name, self.bucket_name, "funnel"), 
+            (self.user_name, self.bucket_name, "property")]
+        for i in range(0, 256):
+            shard = chr(i)
+            keys.extend([
+                (self.user_name, self.bucket_name, "visitor_property", shard)])
+        deferreds.append(delete_relations(keys))
+        keys = []
+        for i in range(0, 256):
+            shard = chr(i)
+            keys.extend([(self.user_name, self.bucket_name, "property", shard),
+                (self.user_name, self.bucket_name, "event", shard),
+                (self.user_name, self.bucket_name, "unique_event", shard),
+                (self.user_name, self.bucket_name, "path", shard),
+                (self.user_name, self.bucket_name, "unique_path", shard),
+                (self.user_name, self.bucket_name, "visitor_event", shard),
+                (self.user_name, self.bucket_name, "visitor_path", shard)])
+        deferreds.append(delete_counters(keys))
         yield DeferredList(deferreds)

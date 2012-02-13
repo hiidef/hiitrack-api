@@ -21,8 +21,20 @@ from collections import defaultdict
 CLIENT = None
 HIGH_ID = chr(255) * 16
 
+class Batched(object):
+
+    def __init__(self):
+        self.relation = {}
+
+    def get_relation(self, key, column_id):
+        pass
+
+    def flush(self):
+        pass
+
 
 class Buffer(object):
+
     def __init__(self):
         self.relation = defaultdict(dict)
         self.counter = defaultdict(lambda:defaultdict(lambda:0))
@@ -159,16 +171,17 @@ def get_relation(
     """
     Get a row, column, or slice from the relation column family.
     """
+    key = pack_hash(key)
     if column_id:
         result = yield CLIENT.get(
-            key=pack_hash(key),
+            key=key,
             column_family="relation",
             consistency=consistency,
             column=column_id)
         returnValue(result.column.value)
     elif column:
         result = yield CLIENT.get(
-            key=pack_hash(key),
+            key=key,
             column_family="relation",
             consistency=consistency,
             column=pack_hash(column))
@@ -181,7 +194,7 @@ def get_relation(
             start = ''
             finish = ''
         result = yield CLIENT.get_slice(
-            key=pack_hash(key),
+            key=key,
             column_family="relation",
             start=start,
             finish=finish,
@@ -221,23 +234,30 @@ def delete_relation(key, column=None, column_id=None, consistency=None):
     """
     Delete a row or column from the relation CF.
     """
+    key = pack_hash(key)
     if column_id:
         return CLIENT.remove(
-            key=pack_hash(key),
+            key=key,
             column_family="relation",
             column=column_id,
             consistency=consistency)
     elif column:
         return CLIENT.remove(
-            key=pack_hash(key),
+            key=key,
             column_family="relation",
             column=pack_hash(column),
             consistency=consistency)
     else:
         return CLIENT.remove(
-            key=pack_hash(key),
+            key=key,
             column_family="relation",
             consistency=consistency)
+
+
+@profile
+def delete_relations(keys, consistency=None):
+    keys = [pack_hash(key) for key in keys]
+    return CLIENT.batch_remove_rows({"relation":keys}, consistency=consistency)
 
 
 @profile
@@ -246,6 +266,7 @@ def get_counter(key, consistency=None, prefix=None):
     """
     Get all columns from a row of counters.
     """
+    key = pack_hash(key)
     if prefix:
         start = prefix
         finish = prefix + HIGH_ID
@@ -253,13 +274,33 @@ def get_counter(key, consistency=None, prefix=None):
         start = ''
         finish = ''
     result = yield CLIENT.get_slice(
-        key=pack_hash(key),
+        key=key,
         column_family="counter",
         consistency=consistency,
         start=start,
         finish=finish,
         count=10000)
     returnValue(counter_cols_to_dict(result, prefix=prefix))
+
+
+@profile
+@inlineCallbacks
+def get_counters(keys, consistency=None, prefix=None):
+    keys = [pack_hash(key) for key in keys]
+    if prefix:
+        start = prefix
+        finish = prefix + HIGH_ID
+    else:
+        start = ''
+        finish = ''
+    data = yield CLIENT.multiget_slice(
+        keys=keys,
+        column_family="counter",
+        consistency=consistency,
+        start=start,
+        finish=finish,
+        count=10000)
+    returnValue([counter_cols_to_dict(data[key], prefix=prefix) for key in keys])
 
 
 @profile
@@ -285,20 +326,26 @@ def delete_counter(key, column=None, column_id=None, consistency=None):
     """
     Delete a row or column from the counter CF.
     """
+    key = pack_hash(key)
     if column_id:
         return CLIENT.remove_counter(
-            key=pack_hash(key),
+            key=key,
             column_family="counter",
             column=column_id,
             consistency=consistency)
     elif column:
         return CLIENT.remove_counter(
-            key=pack_hash(key),
+            key=key,
             column_family="counter",
             column=pack_hash(column),
             consistency=consistency)
     else:
         return CLIENT.remove_counter(
-            key=pack_hash(key),
+            key=key,
             column_family="counter",
             consistency=consistency)
+
+@profile
+def delete_counters(keys, consistency=None):
+    keys = [pack_hash(key) for key in keys]
+    return CLIENT.batch_remove_rows({"counter":keys}, consistency=consistency)

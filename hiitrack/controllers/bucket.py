@@ -147,10 +147,6 @@ class Bucket(object):
                 "id":request_id,
                 "error": "Batch request must contain base64 encoded list"
                     " of two values: event_names, properties"})
-        bucket = BucketModel(user_name, bucket_name)
-        exists = yield bucket.exists()
-        if not exists:
-            yield bucket.create("")
         visitor = VisitorModel(user_name, bucket_name, visitor_id)
         deferreds = []
         for event_name in event_names:
@@ -162,3 +158,36 @@ class Bucket(object):
             deferreds.append(pv.add(visitor))
         yield DeferredList(deferreds)
         returnValue({"id":request.args["id"][0]})
+#        event_ids, path, property_ids = yield visitor.get_metadata()
+#        deferreds = []
+#        new_properties = [PropertyValueModel(user_name, bucket_name, key, value) for key, value in properties]
+#        new_events = [EventModel(user_name, bucket_name, event_name) for event_name in event_names]
+#        for pv in new_properties:
+#            if pv.id not in property_ids:
+#                deferreds.append(pv.create())
+#                deferreds.append(visitor.add_property(pv))
+#        property_ids = set(property_ids + [x.id for x in properties])
+#        for event in new_events:
+#            unique = event.id not in event_ids
+#            if unique:
+#                deferreds.append(event.create())
+#            deferreds.append(event.increment_total(unique))
+#
+#
+#        event_ids = set(event_ids + )
+#        for property_id in property_ids + :
+#            deferreds.append(self.increment_total(unique, property_id))
+#        deferreds.append(visitor.increment_total(self.id))
+#        for event_id in event_ids:
+#            _unique = unique or event_id not in path[self.id]
+#            deferreds.append(visitor.increment_path(event_id, self.id))
+#            deferreds.append(self.increment_path(event_id, _unique))
+#            for property_id in property_ids:
+#                deferreds.append(self.increment_path(
+#                    event_id, 
+#                    _unique, 
+#                    property_id))
+#        BUFFER.flush()
+#        yield DeferredList(deferreds)
+
+
