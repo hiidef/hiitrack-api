@@ -23,7 +23,7 @@ setup(
         'telephus>=1.0.0',
         'txroutes>=0.0.2',
         'ordereddict>=1.1',
-        'pylogd>=0.3'
+        'pylogd>=0.3',
         'pylru>=1.0.5'],
 
     include_package_data = True,
