@@ -85,7 +85,7 @@ class PropertyValueModel(object):
         key = (self.user_name, self.bucket_name, "property")
         column_id = self.id
         value = ujson.dumps((self.property_name, self.property_value))
-        return insert_relation_by_id(key, column_id, value)
+        insert_relation_by_id(key, column_id, value)
 
     def get_name_and_value(self):
         """
@@ -108,29 +108,27 @@ class PropertyValueModel(object):
         """
         if self.id in property_ids:
             return []
-        deferreds = []
         for event_id in total:
             event = EventModel(
                 self.user_name, 
                 self.bucket_name, 
                 event_id=event_id)
-            deferreds.append(event.increment_total(
+            event.increment_total(
                 True,
                 property_id=self.id,
-                value=total[event_id]))
+                value=total[event_id])
         for new_event_id in path:
             event = EventModel(
                 self.user_name, 
                 self.bucket_name, 
                 event_id=new_event_id)
             for event_id in path[new_event_id]:
-                deferreds.append(event.increment_path(event_id,
+                event.increment_path(event_id,
                     True,  # Unique
                     property_id=self.id,
-                    value=path[event.id][event_id]))
-        deferreds.append(self.create())
-        deferreds.append(visitor.add_property(self))
-        return deferreds
+                    value=path[event.id][event_id])
+        self.create()
+        visitor.add_property(self)
 
     @profile
     @inlineCallbacks
@@ -139,6 +137,5 @@ class PropertyValueModel(object):
         Add the property/value to the visitor and increment global counters.
         """    
         total, path, property_ids = yield visitor.get_metadata()
-        deferreds = self.batch_add(visitor, total, path, property_ids)
-        BUFFER.flush()
-        yield DeferredList(deferreds)
+        self.batch_add(visitor, total, path, property_ids)
+        yield BUFFER.flush()

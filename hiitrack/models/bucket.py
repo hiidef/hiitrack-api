@@ -196,9 +196,17 @@ class BucketModel(object):
             shard = chr(i)
             keys.extend([(self.user_name, self.bucket_name, "property", shard),
                 (self.user_name, self.bucket_name, "event", shard),
+                (self.user_name, self.bucket_name, "hourly_event", shard),
+                (self.user_name, self.bucket_name, "daily_event", shard),
                 (self.user_name, self.bucket_name, "unique_event", shard),
+                (self.user_name, self.bucket_name, "hourly_unique_event", shard),
+                (self.user_name, self.bucket_name, "daily_unique_event", shard),
                 (self.user_name, self.bucket_name, "path", shard),
+                (self.user_name, self.bucket_name, "hourly_path", shard),
+                (self.user_name, self.bucket_name, "daily_path", shard),
                 (self.user_name, self.bucket_name, "unique_path", shard),
+                (self.user_name, self.bucket_name, "hourly_unique_path", shard),
+                (self.user_name, self.bucket_name, "daily_unique_path", shard),
                 (self.user_name, self.bucket_name, "visitor_event", shard),
                 (self.user_name, self.bucket_name, "visitor_path", shard)])
         deferreds.append(delete_counters(keys))

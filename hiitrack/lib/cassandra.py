@@ -19,6 +19,7 @@ from collections import defaultdict
 
 
 CLIENT = None
+LOW_ID = chr(255) * 16
 HIGH_ID = chr(255) * 16
 
 class Batched(object):
@@ -38,60 +39,56 @@ class Buffer(object):
     def __init__(self):
         self.relation = defaultdict(dict)
         self.counter = defaultdict(lambda:defaultdict(lambda:0))
-        self.relation_deferreds = []
-        self.counter_deferreds = []
 
-    @inlineCallbacks
     def flush_relation(self):
         relation, self.relation = self.relation, defaultdict(dict)
-        relation_deferreds, self.relation_deferreds = self.relation_deferreds, []
-        try:
-            yield CLIENT.batch_multikey_insert("relation", relation)
-            for deferred in relation_deferreds:
-                deferred.callback(True)
-        except Exception, error:
-            for deferred in relation_deferreds:
-                deferred.errback(error)
-            raise
+        return CLIENT.batch_multikey_insert("relation", relation)
 
-    @inlineCallbacks
     def flush_counter(self):
         counter, self.counter = self.counter, defaultdict(lambda:defaultdict(lambda:0))
-        counter_deferreds, self.counter_deferreds = self.counter_deferreds, []
-        try:
-            yield CLIENT.batch_multikey_add("counter", counter)
-            for deferred in counter_deferreds:
-                deferred.callback(True)
-        except Exception, error:
-            for deferred in counter_deferreds:
-                deferred.errback(error)
-            raise
+        return CLIENT.batch_multikey_add("counter", counter)
 
     def insert_relation(self, key, column_id, value):
         self.relation[key][column_id] = value
-        deferred = Deferred()
-        self.relation_deferreds.append(deferred)
-        return deferred
 
     def increment_counter(self, key, column_id, value):    
         self.counter[key][column_id] += value
-        deferred = Deferred()
-        self.counter_deferreds.append(deferred)
-        return deferred
 
     def flush(self):
-        self.flush_relation()
-        self.flush_counter()
+        return DeferredList([self.flush_relation(), self.flush_counter()])
 
 
 BUFFER = Buffer()
 
 
-def pack_timestamp():
+def pack_hour(timestamp=None):
+    """
+    Return a packed byte string representing a timestamp floored to the
+    hour.
+    """
+    timestamp = timestamp or time.time()
+    return struct.pack(">1i", timestamp - timestamp % (60*60))
+
+
+def pack_day(timestamp=None):
+    """
+    Return a packed byte string representing a timestamp floored to the
+    day.
+    """
+    timestamp = timestamp or time.time()
+    return struct.pack(">1i", timestamp - timestamp % (60*60*24))
+
+
+def pack_timestamp(timestamp=None):
     """
     Return a packed byte string representing a timestamp.
     """
-    return struct.pack(">1d", time.time())
+    timestamp = timestamp or time.time()
+    return struct.pack(">1i", timestamp)
+
+
+def unpack_timestamp(timestamp):
+    return struct.unpack(">1i", timestamp)[0]
 
 
 def cols_to_dict(columns, prefix=None):
@@ -224,10 +221,9 @@ def insert_relation_by_id(key, column_id, value, commit=False):
 
 
 def _insert_relation(key, column_id, value, commit):
-    deferred = BUFFER.insert_relation(key, column_id, value)
+    BUFFER.insert_relation(key, column_id, value)
     if commit:
-        BUFFER.flush_relation()
-    return deferred
+        return BUFFER.flush_relation()
 
 
 @profile
@@ -263,17 +259,14 @@ def delete_relations(keys, consistency=None):
 
 @profile
 @inlineCallbacks
-def get_counter(key, consistency=None, prefix=None):
+def get_counter(key, consistency=None, prefix=None, start='', finish=''):
     """
     Get all columns from a row of counters.
     """
     key = pack_hash(key)
     if prefix:
-        start = prefix
-        finish = prefix + HIGH_ID
-    else:
-        start = ''
-        finish = ''
+        start = "".join([prefix, start])
+        finish = "".join([prefix, finish, HIGH_ID])
     result = yield CLIENT.get_slice(
         key=key,
         column_family="counter",
@@ -316,10 +309,9 @@ def increment_counter(
     """
     key = pack_hash(key)
     column_id = column_id or pack_hash(column)
-    deferred = BUFFER.increment_counter(key, column_id, value)
+    BUFFER.increment_counter(key, column_id, value)
     if commit:
-        BUFFER.flush_counter()
-    return deferred
+        return BUFFER.flush_counter()
 
 
 @profile

@@ -49,7 +49,7 @@ class Event(object):
         Information about the event.
         """
         event = EventModel(user_name, bucket_name, event_name)
-        return self._get(event, event_name)
+        return self._get(request, event, event_name)
 
     @authenticate
     @user_authorize
@@ -63,22 +63,48 @@ class Event(object):
         event_id = uri_b64decode(event_id)
         event = EventModel(user_name, bucket_name, event_id=event_id)
         event_name = yield event.get_name()
-        data = yield self._get(event, event_name)
+        data = yield self._get(request, event, event_name)
         returnValue(data)
 
     @inlineCallbacks
-    def _get(self, event, event_name):
-        total = yield event.get_total()
-        unique_total = yield event.get_unique_total()
-        path = yield event.get_path()
-        unique_path = yield event.get_unique_path()
-        returnValue({
-            "id": uri_b64encode(event.id),
-            "unique_total": b64encode_keys(unique_total),
-            "total": b64encode_keys(total),
-            "path": b64encode_nested_keys(path),
-            "unique_path": b64encode_nested_keys(unique_path),
-            "name": event_name})
+    def _get(self, request, event, event_name):
+        args = request.args
+        if "start" in args:
+            start = int(args["start"][0])
+        else:
+            start = None
+        response = {"id": uri_b64encode(event.id), "name": event_name}
+        if start:
+            if "finish" in args:
+                finish = int(args["finish"][0])
+            else:
+                finish = time.time()
+            if "interval" in args and args["interval"][0] == "hour":
+                total = yield event.get_hourly_total(start, finish)
+                unique_total = yield event.get_hourly_unique_total(start, finish)
+                path = yield event.get_hourly_path(start, finish)
+                unique_path = yield event.get_hourly_unique_path(start, finish)
+            else:
+                total = yield event.get_daily_total(start, finish)
+                unique_total = yield event.get_daily_unique_total(start, finish)
+                path = yield event.get_daily_path(start, finish)
+                unique_path = yield event.get_daily_unique_path(start, finish)
+            response.update({
+                "total": b64encode_keys(total),
+                "unique_total": b64encode_keys(unique_total),
+                "path": b64encode_nested_keys(path),
+                "unique_path": b64encode_nested_keys(unique_path)})
+        else:
+            total = yield event.get_total()
+            unique_total = yield event.get_unique_total()
+            path = yield event.get_path()
+            unique_path = yield event.get_unique_path()
+            response.update({   
+                "total": b64encode_keys(total),
+                "unique_total": b64encode_keys(unique_total),            
+                "path": b64encode_nested_keys(path),
+                "unique_path": b64encode_nested_keys(unique_path)})
+        returnValue(response)
 
     @require("visitor_id")
     @bucket_create

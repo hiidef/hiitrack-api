@@ -12,6 +12,7 @@ from urllib import quote
 from collections import defaultdict
 from base64 import b64encode
 from urllib import urlencode
+import time
 
 class EventTestCase(unittest.TestCase):
     
@@ -97,10 +98,19 @@ class EventTestCase(unittest.TestCase):
         returnValue(result)
 
     @inlineCallbacks
-    def get_event(self, name):
+    def get_event(self, name, start=None, finish=None, interval="day"):
+        url = str("%s/event/%s" % (self.url, quote(name)))
+        qs = {}
+        if start:
+            qs["start"] = start
+            qs["interval"] = interval
+            if finish:
+                qs["finish"] = finish
+        if qs:
+            url += "?%s" % urlencode(qs)
         result = yield request(
             "GET",
-            str("%s/event/%s" % (self.url, quote(name))),
+            url,
             username=self.username,
             password=self.password)
         self.assertEqual(result.code, 200)
@@ -123,6 +133,47 @@ class EventTestCase(unittest.TestCase):
         visitor_id_1 = uuid.uuid4().hex
         result = yield self.post_event(visitor_id_1, NAME)
         result = yield self.get_event(NAME)
+
+    @inlineCallbacks
+    def test_timed(self): 
+        event_name_1 = "Event 1 %s" % uuid.uuid4().hex
+        event_name_2 = "Event 2 %s" % uuid.uuid4().hex
+        visitor_id_1 = uuid.uuid4().hex
+        property_1_key = uuid.uuid4().hex
+        property_1_value = "Property 1 %s" %  uuid.uuid4().hex
+        range_start = int(time.time()-60*60*24*7)
+        range_finish = int(time.time() + 100)
+        yield self.post_property(visitor_id_1, property_1_key, property_1_value)
+        yield self.post_event(visitor_id_1, event_name_1)
+        yield self.post_event(visitor_id_1, event_name_2)
+        properties = yield self.get_property_dict()
+        property_1 = yield self.get_property(property_1_key)
+        property_1_id = properties[property_1_key][property_1_value]
+        events = yield self.get_event_dict()
+        event_1_id = events[event_name_1]
+        event_2_id = events[event_name_2]   
+        event_1 = yield self.get_event(event_name_1, start=range_start, finish=range_finish)
+        event_2 = yield self.get_event(event_name_2, start=range_start, finish=range_finish)
+        self.assertEqual(event_1["total"][event_1_id][0][1], 1)
+        self.assertEqual(event_1["unique_total"][event_1_id][0][1], 1)
+        self.assertEqual(event_2["total"][event_2_id][0][1], 1)
+        self.assertEqual(event_2["unique_total"][event_2_id][0][1], 1)
+        self.assertEqual(event_1["total"][property_1_id][0][1], 1)
+        self.assertEqual(event_1["unique_total"][property_1_id][0][1], 1)
+        self.assertEqual(event_2["total"][property_1_id][0][1], 1)
+        self.assertEqual(event_2["unique_total"][property_1_id][0][1], 1)
+        self.assertEqual(len(event_1["path"]), 0)
+        self.assertEqual(event_2["path"][event_2_id][event_1_id][0][1], 1)
+        event_1 = yield self.get_event(event_name_1, start=range_start, finish=range_finish, interval="hour")
+        event_2 = yield self.get_event(event_name_2, start=range_start, finish=range_finish, interval="hour")
+        self.assertEqual(event_1["total"][event_1_id][0][1], 1)
+        self.assertEqual(event_1["unique_total"][event_1_id][0][1], 1)
+        self.assertEqual(event_2["total"][event_2_id][0][1], 1)
+        self.assertEqual(event_2["unique_total"][event_2_id][0][1], 1)
+        self.assertEqual(event_1["total"][property_1_id][0][1], 1)
+        self.assertEqual(event_1["unique_total"][property_1_id][0][1], 1)
+        self.assertEqual(event_2["total"][property_1_id][0][1], 1)
+        self.assertEqual(event_2["unique_total"][property_1_id][0][1], 1)
 
     @inlineCallbacks
     def test_get(self):          
@@ -330,7 +381,6 @@ class EventTestCase(unittest.TestCase):
         self.assertEqual(event_2["unique_total"][property_3_id], 1)
         self.assertEqual(event_3["unique_total"][property_3_id], 1)
         # Property event totals
-
         self.assertEqual(property_1["values"][property_1_id]["total"][event_1_id], 1)
         self.assertEqual(property_1["values"][property_1_id]["total"][event_2_id], 1)
         self.assertEqual(property_1["values"][property_1_id]["total"][event_3_id], 1)

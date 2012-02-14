@@ -173,13 +173,12 @@ class Bucket(object):
         deferreds = []
         for key, value in properties:
             pv = PropertyValueModel(user_name, bucket_name, key, value)
-            deferreds.extend(pv.batch_add(visitor, total, path, property_ids))
+            pv.batch_add(visitor, total, path, property_ids)
             property_ids.append(pv.id)
         for event_name in event_names:
             event = EventModel(user_name, bucket_name, event_name)
-            deferreds.extend(event.batch_add(visitor, total, path, property_ids))
-        BUFFER.flush()
-        yield DeferredList(deferreds)
+            event.batch_add(visitor, total, path, property_ids)
+        yield BUFFER.flush()
         returnValue({"visitor_id":visitor_id})
 
 
