@@ -93,8 +93,10 @@ class Dispatcher(Resource):
             result = dict([(x[0], x[1].encode("utf8")) \
                 for x in result.items()])
             d = maybeDeferred(handler, request, **result)
-            d.addCallback(self._success_response)
             d.addErrback(self._error_response, request)
+            if "request_id" in request.args:
+                d.addCallback(self._add_request_id_callback, request)
+            d.addCallback(ujson.dumps)
             if "callback" in request.args:
                 d.addCallback(self._add_jsonp_callback, request)
             d.addCallback(self._gzip_response, request)
@@ -102,9 +104,6 @@ class Dispatcher(Resource):
         else:
             request.setResponseCode(404)
             return ujson.dumps({"error": "Not found"})
-
-    def _success_response(self, data):
-        return ujson.dumps(data)
 
     def _error_response(self, error, request):
         try:
@@ -116,7 +115,11 @@ class Dispatcher(Resource):
         if request.code < 400:
             request.setResponseCode(500)
             print error.getTraceback()
-        return ujson.dumps({"error": str(error.value), "exc": exc})
+        return {"error": str(error.value), "exc": exc}
+
+    def _add_request_id_callback(self, data, request):
+        data["request_id"] = request.args["request_id"][0]
+        return data
 
     def _add_jsonp_callback(self, data, request):
         return "%s(%s);" % (request.args["callback"][0], data)

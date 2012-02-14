@@ -19,6 +19,11 @@ class HTTPAuthenticationRequired(HiiTrackException):
     """
     pass
 
+class EventException(HiiTrackException):
+    """
+    Event failure
+    """
+    pass
 
 class UserException(HiiTrackException):
     """

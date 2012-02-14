@@ -40,6 +40,12 @@ class Funnel(object):
             conditions={"method": "POST"})
         dispatcher.connect(
             name='funnel',
+            route='/{user_name}/{bucket_name}/funnel',
+            controller=self,
+            action='preview_funnel',
+            conditions={"method": "GET"})
+        dispatcher.connect(
+            name='funnel',
             route='/{user_name}/{bucket_name}/funnel/{funnel_name}',
             controller=self,
             action='get_saved_funnel',
@@ -76,6 +82,20 @@ class Funnel(object):
     @bucket_check
     @profile
     @inlineCallbacks
+    def preview_funnel(self, request, user_name, bucket_name):
+        if len(request.args["event_id"]) < 2:
+            request.setResponseCode(403)
+            raise MissingParameterException("Parameter 'event_id' requires "
+                "at least two values.")
+        event_ids = [uri_b64decode(x) for x in request.args["event_id"]]
+        data = yield self._get(user_name, bucket_name, event_ids)
+        returnValue(data)
+        
+    @authenticate
+    @user_authorize
+    @bucket_check
+    @profile
+    @inlineCallbacks
     def get_saved_funnel(self, request, user_name, bucket_name, funnel_name):
         """
         Get funnel details.
@@ -86,6 +106,12 @@ class Funnel(object):
         except NotFoundException:
             request.setResponseCode(404)
             raise
+        data = yield self._get(user_name, bucket_name, event_ids)
+        data["description"] = description
+        returnValue(data)
+
+    @inlineCallbacks
+    def _get(self, user_name, bucket_name, event_ids):
         totals = {}
         unique_totals = {}
         paths = {}
@@ -147,7 +173,6 @@ class Funnel(object):
             funnels[property_id] = _funnel
             unique_funnels[property_id] = unique_funnel
         returnValue({
-            "description": description,
             "event_ids": [uri_b64encode(x) for x in event_ids],
             "totals": b64encode_nested_keys(totals),
             "unique_totals": b64encode_nested_keys(unique_totals),

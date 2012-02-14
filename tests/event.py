@@ -10,6 +10,8 @@ import ujson
 from pprint import pprint
 from urllib import quote
 from collections import defaultdict
+from base64 import b64encode
+from urllib import urlencode
 
 class EventTestCase(unittest.TestCase):
     
@@ -77,9 +79,10 @@ class EventTestCase(unittest.TestCase):
 
     @inlineCallbacks
     def post_property(self, visitor_id, name, value):
+        qs = urlencode({"value":b64encode(ujson.dumps(value))})
         result = yield request(
             "POST",
-            "%s/property/%s/%s" % (self.url, quote(name), quote(value)),
+            "%s/property/%s?%s" % (self.url, quote(name), qs),
             data={"visitor_id":visitor_id})
         self.assertEqual(result.code, 200)
         returnValue(result)
@@ -104,11 +107,11 @@ class EventTestCase(unittest.TestCase):
         returnValue(ujson.loads(result.body))
 
     @inlineCallbacks
-    def get_property(self, name, value):
+    def get_property(self, name):
         properties = yield self.get_property_dict()
         result = yield request(
             "GET",
-            str("%s/property/%s/%s" % (self.url, quote(name), quote(value))),
+            str("%s/property/%s" % (self.url, quote(name))),
             username=self.username,
             password=self.password)
         self.assertEqual(result.code, 200)
@@ -199,9 +202,9 @@ class EventTestCase(unittest.TestCase):
         event_2_id = events[event_name_2]
         event_3_id = events[event_name_3]
         properties = yield self.get_property_dict()
-        property_1 = yield self.get_property(property_1_key, property_1_value)
-        property_2 = yield self.get_property(property_2_key, property_2_value)
-        property_3 = yield self.get_property(property_3_key, property_3_value)
+        property_1 = yield self.get_property(property_1_key)
+        property_2 = yield self.get_property(property_2_key)
+        property_3 = yield self.get_property(property_3_key)
         property_1_id = properties[property_1_key][property_1_value]
         property_2_id = properties[property_2_key][property_2_value]
         property_3_id = properties[property_3_key][property_3_value]
@@ -295,9 +298,9 @@ class EventTestCase(unittest.TestCase):
         self.assertEqual(property_1["name"], property_1_key)
         self.assertEqual(property_2["name"], property_2_key)
         self.assertEqual(property_3["name"], property_3_key)
-        self.assertEqual(property_1["value"], property_1_value)
-        self.assertEqual(property_2["value"], property_2_value)
-        self.assertEqual(property_3["value"], property_3_value)
+        self.assertEqual(property_1["values"][property_1_id]["value"], property_1_value)
+        self.assertEqual(property_2["values"][property_2_id]["value"], property_2_value)
+        self.assertEqual(property_3["values"][property_3_id]["value"], property_3_value)
         # Event totals
         self.assertEqual(event_1["total"][event_1_id], 3)
         self.assertEqual(event_2["total"][event_2_id], 2)
@@ -327,15 +330,16 @@ class EventTestCase(unittest.TestCase):
         self.assertEqual(event_2["unique_total"][property_3_id], 1)
         self.assertEqual(event_3["unique_total"][property_3_id], 1)
         # Property event totals
-        self.assertEqual(property_1["total"][event_1_id], 1)
-        self.assertEqual(property_1["total"][event_2_id], 1)
-        self.assertEqual(property_1["total"][event_3_id], 1)
-        self.assertEqual(property_2["total"][event_1_id], 2)
-        self.assertEqual(property_2["total"][event_2_id], 2)
-        self.assertEqual(property_2["total"][event_3_id], 2)
-        self.assertEqual(property_3["total"][event_1_id], 1)
-        self.assertEqual(property_3["total"][event_2_id], 1)
-        self.assertEqual(property_3["total"][event_3_id], 1)
+
+        self.assertEqual(property_1["values"][property_1_id]["total"][event_1_id], 1)
+        self.assertEqual(property_1["values"][property_1_id]["total"][event_2_id], 1)
+        self.assertEqual(property_1["values"][property_1_id]["total"][event_3_id], 1)
+        self.assertEqual(property_2["values"][property_2_id]["total"][event_1_id], 2)
+        self.assertEqual(property_2["values"][property_2_id]["total"][event_2_id], 2)
+        self.assertEqual(property_2["values"][property_2_id]["total"][event_3_id], 2)
+        self.assertEqual(property_3["values"][property_3_id]["total"][event_1_id], 1)
+        self.assertEqual(property_3["values"][property_3_id]["total"][event_2_id], 1)
+        self.assertEqual(property_3["values"][property_3_id]["total"][event_3_id], 1)
 
 
 

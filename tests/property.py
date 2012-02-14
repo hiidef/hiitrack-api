@@ -8,6 +8,8 @@ from hiitrack import HiiTrack
 import uuid
 import ujson
 from urllib import quote
+from base64 import b64encode
+from urllib import urlencode
 
 class PropertyTestCase(unittest.TestCase):
     
@@ -45,15 +47,16 @@ class PropertyTestCase(unittest.TestCase):
             username=self.username,
             password=self.password) 
         self.hiitrack.stopService()
-    
+
     @inlineCallbacks
     def test_post(self):
         NAME = uuid.uuid4().hex
         VALUE = uuid.uuid4().hex
         VISITOR_ID = uuid.uuid4().hex
+        qs = urlencode({"value":b64encode(ujson.dumps(VALUE))})
         result = yield request(
             "POST",
-            "%s/property/%s/%s" % (self.url, quote(NAME), quote(VALUE)),
+            "%s/property/%s?%s" % (self.url, quote(NAME), qs),
             data={"visitor_id":VISITOR_ID})
         self.assertEqual(result.code, 200)
 
@@ -62,9 +65,10 @@ class PropertyTestCase(unittest.TestCase):
         NAME = uuid.uuid4().hex
         VALUE = uuid.uuid4().hex
         VISITOR_ID = uuid.uuid4().hex
+        qs = urlencode({"value":b64encode(ujson.dumps(VALUE))})
         result = yield request(
             "POST",
-            "%s/property/%s/%s" % (self.url, quote(NAME), quote(VALUE)),
+            "%s/property/%s?%s" % (self.url, quote(NAME), qs),
             data={"visitor_id":VISITOR_ID})
         result = yield request(
             "GET",
@@ -72,3 +76,4 @@ class PropertyTestCase(unittest.TestCase):
             username=self.username,
             password=self.password)
         self.assertTrue(NAME in ujson.loads(result.body)["properties"])
+

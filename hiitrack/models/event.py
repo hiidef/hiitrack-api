@@ -7,8 +7,8 @@ Events are name/timestamp pairs linked to a visitor and stored in buckets.
 
 from ..lib.hash import pack_hash
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
-from ..lib.cassandra import insert_relation, increment_counter, get_counter, \
-    BUFFER
+from ..lib.cassandra import insert_relation_by_id, increment_counter, get_counter, \
+    BUFFER, get_relation
 from collections import defaultdict
 from ..lib.b64encode import uri_b64encode
 from ..lib.profiler import profile
@@ -27,7 +27,7 @@ class EventModel(object):
         self.bucket_name = bucket_name
         self.event_name = event_name
         if event_name:
-            self.id = pack_hash((user_name, bucket_name, "event", event_name))
+            self.id = pack_hash((event_name,))
         elif event_id:
             self.id = event_id
         else:
@@ -39,9 +39,15 @@ class EventModel(object):
         Bucket event.
         """
         key = (self.user_name, self.bucket_name, "event")
-        column = (self.user_name, self.bucket_name, "event", self.event_name)
+        column_id = self.id
         value = self.event_name
-        return insert_relation(key, column, value)
+        return insert_relation_by_id(key, column_id, value)
+
+    @profile
+    def get_name(self):   
+        key = (self.user_name, self.bucket_name, "event")
+        column_id = self.id
+        return get_relation(key, column_id=column_id)
 
     @profile
     @inlineCallbacks
@@ -130,21 +136,19 @@ class EventModel(object):
             result[property_id][event_id] = data[column_id]
         returnValue(result)
 
-    @profile 
-    @inlineCallbacks
-    def add(self, visitor):
+    def batch_add(self, visitor, total, path, property_ids):
         """
-        Add the event to the visitor and increment global counters.
+        Add the event to the visitor, increment global counters, and return
+        a list of deferreds.
         """
-        event_ids, path, property_ids = yield visitor.get_metadata()
-        unique = self.id not in event_ids
+        unique = self.id not in total
         deferreds = [
             self.create(),
             self.increment_total(unique)]
         for property_id in property_ids:
             deferreds.append(self.increment_total(unique, property_id))
         deferreds.append(visitor.increment_total(self.id))
-        for event_id in event_ids:
+        for event_id in total:
             _unique = unique or event_id not in path[self.id]
             deferreds.append(visitor.increment_path(event_id, self.id))
             deferreds.append(self.increment_path(event_id, _unique))
@@ -153,5 +157,17 @@ class EventModel(object):
                     event_id, 
                     _unique, 
                     property_id))
+            path[event_id][self.id] += 1 #Update the visitor path for batch
+        total[self.id] += 1 # Update the visitor total for batch
+        return deferreds
+
+    @profile 
+    @inlineCallbacks
+    def add(self, visitor):
+        """
+        Add the event to the visitor and increment global counters.
+        """
+        total, path, property_ids = yield visitor.get_metadata()
+        deferreds = self.batch_add(visitor, total, path, property_ids)
         BUFFER.flush()
         yield DeferredList(deferreds)

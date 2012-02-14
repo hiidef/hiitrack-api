@@ -10,7 +10,8 @@ import ujson
 from pprint import pprint
 from urllib import quote
 from collections import defaultdict
-
+from base64 import b64encode
+from urllib import urlencode
 
 class FunnelTestCase(unittest.TestCase):
     
@@ -78,9 +79,10 @@ class FunnelTestCase(unittest.TestCase):
 
     @inlineCallbacks
     def post_property(self, visitor_id, name, value):
+        qs = urlencode({"value":b64encode(ujson.dumps(value))})
         result = yield request(
             "POST",
-            "%s/property/%s/%s" % (self.url, quote(name), quote(value)),
+            "%s/property/%s?%s" % (self.url, quote(name), qs),
             data={"visitor_id":visitor_id})
         self.assertEqual(result.code, 200)
         returnValue(result)
@@ -94,6 +96,37 @@ class FunnelTestCase(unittest.TestCase):
         self.assertEqual(result.code, 200)
         returnValue(result)
 
+    @inlineCallbacks
+    def test_dynamic(self):
+        VISITOR_ID_1 = uuid.uuid4().hex
+        EVENT_1 = "Event 1 %s" % uuid.uuid4().hex
+        EVENT_2 = "Event 2 %s" % uuid.uuid4().hex
+        yield self.post_event(VISITOR_ID_1, EVENT_1)
+        yield self.post_event(VISITOR_ID_1, EVENT_2)
+        events = yield self.get_event_dict()
+        event_id_1 = events[EVENT_1]
+        event_id_2 = events[EVENT_2]
+        qs = urlencode([("event_id", event_id_1), ("event_id", event_id_2)])
+        result = yield request(
+            "GET",
+            "%s/funnel?%s" % (self.url, qs),
+            username=self.username,
+            password=self.password) 
+        self.assertEqual(result.code, 200)
+        returned_event_ids = ujson.decode(result.body)["event_ids"]
+        self.assertTrue(event_id_1 in returned_event_ids)
+        self.assertTrue(event_id_2 in returned_event_ids)
+        funnel = ujson.decode(result.body)["funnel"]
+        unique_funnel = ujson.decode(result.body)["unique_funnel"]
+        self.assertEqual(funnel[0][0], event_id_1)
+        self.assertEqual(funnel[1][0], event_id_2)
+        self.assertEqual(funnel[0][1], 1)
+        self.assertEqual(funnel[1][1], 1)
+        self.assertEqual(unique_funnel[0][0], event_id_1)
+        self.assertEqual(unique_funnel[1][0], event_id_2)
+        self.assertEqual(unique_funnel[0][1], 1)
+        self.assertEqual(unique_funnel[1][1], 1)
+             
     @inlineCallbacks
     def test_create(self):
         VISITOR_ID_1 = uuid.uuid4().hex

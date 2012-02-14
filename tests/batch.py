@@ -12,6 +12,7 @@ from random import randint
 from urllib import urlencode
 from urllib import quote
 from collections import defaultdict
+from pprint import pprint
 
 
 class BatchTestCase(unittest.TestCase):
@@ -90,11 +91,11 @@ class BatchTestCase(unittest.TestCase):
         returnValue(ujson.loads(result.body))
 
     @inlineCallbacks
-    def get_property(self, name, value):
+    def get_property(self, name):
         properties = yield self.get_property_dict()
         result = yield request(
             "GET",
-            str("%s/property/%s/%s" % (self.url, quote(name), quote(value))),
+            str("%s/property/%s" % (self.url, quote(name))),
             username=self.user_name,
             password=self.password)
         self.assertEqual(result.code, 200)
@@ -113,6 +114,7 @@ class BatchTestCase(unittest.TestCase):
         property_2_value = "Property 2 %s" % uuid.uuid4().hex
         property_3_key = uuid.uuid4().hex
         property_3_value = "Property 3 %s" % uuid.uuid4().hex
+        # VISITOR 1
         events = [event_name_1, event_name_2, event_name_3]
         properties = [
             [property_1_key, property_1_value],
@@ -125,7 +127,7 @@ class BatchTestCase(unittest.TestCase):
         callback = uuid.uuid4().hex[0:10];
         qs = urlencode({
             "message": message, 
-            "id": request_id,
+            "request_id": request_id,
             "callback": callback,
             "visitor_id": visitor_id_1})
         result = yield request(
@@ -134,7 +136,31 @@ class BatchTestCase(unittest.TestCase):
         self.assertEqual(result.body[0:11], "%s(" % callback)
         self.assertEqual(result.body[-2:], ");")
         payload = result.body[11:-2]
-        self.assertEqual(ujson.loads(payload)["id"], str(request_id))
+        self.assertEqual(ujson.loads(payload)["request_id"], str(request_id))
+        # VISITOR 2
+        events = [event_name_1, event_name_3]
+        properties = []
+        message = b64encode(ujson.dumps([
+            events,
+            properties]))
+        request_id = randint(0, 100000)
+        callback = uuid.uuid4().hex[0:10];
+        qs = urlencode({
+            "message": message, 
+            "request_id": request_id,
+            "callback": callback,
+            "visitor_id": visitor_id_2})
+        message = b64encode(ujson.dumps([
+            events,
+            properties]))
+        result = yield request(
+            "GET",
+            "%s/batch?%s" % (self.url, qs))
+        self.assertEqual(result.body[0:11], "%s(" % callback)
+        self.assertEqual(result.body[-2:], ");")
+        payload = result.body[11:-2]
+        self.assertEqual(ujson.loads(payload)["request_id"], str(request_id))
+        # Check events
         event_1 = yield self.get_event(event_name_1)
         event_2 = yield self.get_event(event_name_2)
         event_3 = yield self.get_event(event_name_3)
@@ -143,16 +169,16 @@ class BatchTestCase(unittest.TestCase):
         event_2_id = events[event_name_2]
         event_3_id = events[event_name_3]
         properties = yield self.get_property_dict()
-        property_1 = yield self.get_property(property_1_key, property_1_value)
-        property_2 = yield self.get_property(property_2_key, property_2_value)
-        property_3 = yield self.get_property(property_3_key, property_3_value)
+        property_1 = yield self.get_property(property_1_key)
+        property_2 = yield self.get_property(property_2_key)
+        property_3 = yield self.get_property(property_3_key)
         property_1_id = properties[property_1_key][property_1_value]
         property_2_id = properties[property_2_key][property_2_value]
         property_3_id = properties[property_3_key][property_3_value]
         # Event totals
-        self.assertEqual(event_1["total"][event_1_id], 1)
+        self.assertEqual(event_1["total"][event_1_id], 2)
         self.assertEqual(event_2["total"][event_2_id], 1)
-        self.assertEqual(event_3["total"][event_3_id], 1)
+        self.assertEqual(event_3["total"][event_3_id], 2)
         # Event property totals
         self.assertEqual(event_1["total"][property_1_id], 1)
         self.assertEqual(event_2["total"][property_1_id], 1)
@@ -163,17 +189,29 @@ class BatchTestCase(unittest.TestCase):
         self.assertEqual(event_1["total"][property_3_id], 1)
         self.assertEqual(event_2["total"][property_3_id], 1)
         self.assertEqual(event_3["total"][property_3_id], 1)
-        # Property totals
-        self.assertEqual(property_1["total"][event_1_id], 1)
-        self.assertEqual(property_2["total"][event_2_id], 1)
-        self.assertEqual(property_3["total"][event_3_id], 1)
         # Property event totals
-        self.assertEqual(property_1["total"][event_1_id], 1)
-        self.assertEqual(property_1["total"][event_2_id], 1)
-        self.assertEqual(property_1["total"][event_3_id], 1)
-        self.assertEqual(property_2["total"][event_1_id], 1)
-        self.assertEqual(property_2["total"][event_2_id], 1)
-        self.assertEqual(property_2["total"][event_3_id], 1)
-        self.assertEqual(property_3["total"][event_1_id], 1)
-        self.assertEqual(property_3["total"][event_2_id], 1)
-        self.assertEqual(property_3["total"][event_3_id], 1)
+        self.assertEqual(property_1["values"][property_1_id]["total"][event_1_id], 1)
+        self.assertEqual(property_1["values"][property_1_id]["total"][event_2_id], 1)
+        self.assertEqual(property_1["values"][property_1_id]["total"][event_3_id], 1)
+        self.assertEqual(property_2["values"][property_2_id]["total"][event_1_id], 1)
+        self.assertEqual(property_2["values"][property_2_id]["total"][event_2_id], 1)
+        self.assertEqual(property_2["values"][property_2_id]["total"][event_3_id], 1)
+        self.assertEqual(property_3["values"][property_3_id]["total"][event_1_id], 1)
+        self.assertEqual(property_3["values"][property_3_id]["total"][event_2_id], 1)
+        self.assertEqual(property_3["values"][property_3_id]["total"][event_3_id], 1)
+        # Event paths
+        self.assertEqual(len(event_1["path"]), 0)
+        # Event paths
+        self.assertEqual(event_2["path"][event_2_id][event_1_id], 1)
+        self.assertEqual(event_2["path"][property_1_id][event_1_id], 1)
+        self.assertEqual(event_2["path"][property_2_id][event_1_id], 1)
+        self.assertEqual(event_2["path"][property_3_id][event_1_id], 1)
+        # Event paths
+        self.assertEqual(event_3["path"][event_3_id][event_1_id], 2)
+        self.assertEqual(event_3["path"][property_1_id][event_1_id], 1)
+        self.assertEqual(event_3["path"][property_2_id][event_1_id], 1)
+        self.assertEqual(event_3["path"][property_3_id][event_1_id], 1)
+        self.assertEqual(event_3["path"][event_3_id][event_2_id], 1)
+        self.assertEqual(event_3["path"][property_1_id][event_2_id], 1)
+        self.assertEqual(event_3["path"][property_2_id][event_2_id], 1)
+        self.assertEqual(event_3["path"][property_3_id][event_2_id], 1)

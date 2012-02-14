@@ -107,6 +107,7 @@ class BucketModel(object):
         column_id = self.bucket_name
         try:
             yield get_relation(key, column_id=column_id)
+            LRU_CACHE[self.cache_key] = None
         except NotFoundException:
             returnValue(False)
         returnValue(True)

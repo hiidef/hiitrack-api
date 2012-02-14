@@ -7,5 +7,6 @@ from property import PropertyTestCase
 from user import UserTestCase
 from funnel import FunnelTestCase
 from batch import BatchTestCase
+from cookie import CookieTestCase
 
 

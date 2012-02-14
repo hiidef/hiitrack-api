@@ -54,12 +54,12 @@ class VisitorModel(object):
             (self.user_name, self.bucket_name, "visitor_property", self.id[0])]
         prefix = self.id
         events, paths, properties = yield get_counters(keys, prefix=prefix)
-        path_result = defaultdict(dict)
+        path_result = defaultdict(lambda:defaultdict(lambda:0))
         for column_id in paths:
             new_event_id = column_id[0:16]
             event_id = column_id[16:]
             path_result[new_event_id][event_id] = paths[column_id]
-        returnValue((events.keys(), path_result, properties.keys()))
+        returnValue((events, path_result, properties.keys()))
         
     @profile
     def add_property(self, _property):
@@ -88,7 +88,7 @@ class VisitorModel(object):
         key = (self.user_name, self.bucket_name, "visitor_path", self.id[0])
         prefix = self.id
         data = yield get_counter(key, prefix=prefix)
-        result = defaultdict(dict)
+        result = defaultdict(lambda:defaultdict(lambda:0))
         for column_id in data:
             new_event_id = column_id[0:16]
             event_id = column_id[16:]

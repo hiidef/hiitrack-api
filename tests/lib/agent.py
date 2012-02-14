@@ -1,7 +1,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
-from twisted.web.client import Agent
+from twisted.web.client import Agent, CookieAgent
 from twisted.internet.protocol import Protocol
 from zope.interface import implements
 from twisted.internet.defer import succeed
@@ -13,6 +13,7 @@ import uuid
 from urlparse import urlparse
 import re
 from base64 import b64encode
+from cookielib import CookieJar
 
 AUTH_REGEX = re.compile('(\w+)[=] ?"?(\w+)"?')
 
@@ -54,9 +55,11 @@ class BodyDeliverProtocol(Protocol):
     def connectionLost(self, reason):
         self.finished.callback("".join(self.data))
 
+COOKIEJAR = CookieJar()
+AGENT = CookieAgent(Agent(reactor), COOKIEJAR)
+
 @inlineCallbacks
 def request(*args, **kwargs):
-    agent = Agent(reactor)
     headers = kwargs.get("headers", {})
     if "data" in kwargs:
         body = StringProducer(urllib.urlencode(kwargs["data"]))
@@ -76,7 +79,7 @@ def request(*args, **kwargs):
         del kwargs["password"]
     else:
         password = None
-    response = yield agent.request(*args, **kwargs)
+    response = yield AGENT.request(*args, **kwargs)
     finished = Deferred()
     response.deliverBody(BodyDeliverProtocol(finished))
     response.body = yield finished
@@ -85,8 +88,9 @@ def request(*args, **kwargs):
             username, 
             password))
         kwargs["headers"] = Headers(headers)
-        response = yield agent.request(*args, **kwargs)
+        response = yield AGENT.request(*args, **kwargs)
         finished = Deferred()
         response.deliverBody(BodyDeliverProtocol(finished))
         response.body = yield finished
+    response.cookies = AGENT.cookieJar
     returnValue(response)

@@ -128,13 +128,14 @@ class BucketTestCase(unittest.TestCase):
             username=self.username,
             password=self.password)        
         self.assertEqual(result.code, 200)
+        qs = urlencode({"value":b64encode(ujson.dumps(PROPERTY_VALUE))})
         yield request(
             "POST",
-            "%s/%s/property/%s/%s" % (
+            "%s/%s/property/%s?%s" % (
                 self.url, 
                 BUCKET_NAME_2, 
                 PROPERTY_NAME, 
-                PROPERTY_VALUE),
+                qs),
             data={"visitor_id":VISITOR_ID})
         result = yield request(
             "GET",

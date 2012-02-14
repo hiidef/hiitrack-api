@@ -114,11 +114,10 @@ def counter_cols_to_dict(columns, prefix=None):
     """
     if prefix:
         prefix_length = len(prefix)
-        return OrderedDict([
+        return defaultdict(lambda:0, [
             (x.counter_column.name[prefix_length:], x.counter_column.value)
                 for x in columns])
-    else:
-        return OrderedDict([(x.counter_column.name, x.counter_column.value)
+    return defaultdict(lambda:0, [(x.counter_column.name, x.counter_column.value)
             for x in columns])
 
 
@@ -167,7 +166,8 @@ def get_relation(
         column=None,
         column_id=None,
         prefix=None,
-        consistency=None):
+        consistency=None,
+        count=10000):
     """
     Get a row, column, or slice from the relation column family.
     """
@@ -198,7 +198,8 @@ def get_relation(
             column_family="relation",
             start=start,
             finish=finish,
-            consistency=consistency)
+            consistency=consistency,
+            count=count)
         returnValue(cols_to_dict(result, prefix=prefix))
 
 
