@@ -15,14 +15,12 @@ from ..lib.b64encode import uri_b64encode, b64encode_values, \
 from ..lib.profiler import profile
 
 @profile
-@inlineCallbacks
 def get_user(user_name):
     """
     Returns basic user information.
     """
     user = UserModel(user_name)
-    buckets = yield user.get_buckets()
-    returnValue({"buckets": buckets})
+    returnValue({})
 
 class User(object):
     """

@@ -73,7 +73,18 @@ class Event(object):
             start = int(args["start"][0])
         else:
             start = None
-        response = {"id": uri_b64encode(event.id), "name": event_name}
+        property_data = yield event.get_properties()
+        properties = {}
+        for name in property_data:
+            values = {}
+            for property_id in property_data[name]:
+                property_prefix_id = uri_b64encode(property_id[0:16])
+                properties[property_prefix_id] = {
+                    "id": property_prefix_id, 
+                    "name": name}
+                values[uri_b64encode(property_id)] = property_data[name][property_id]
+            properties[property_prefix_id]["values"] = values
+        response = {"id": uri_b64encode(event.id), "name": event_name, "properties":properties}
         if start:
             if "finish" in args:
                 finish = int(args["finish"][0])

@@ -12,7 +12,7 @@ from ..lib.cassandra import insert_relation_by_id, increment_counter, get_counte
 from collections import defaultdict
 from ..lib.b64encode import uri_b64encode
 from ..lib.profiler import profile
-
+import ujson
 
 _32_BYTE_FILLER = chr(0)*32
 
@@ -43,6 +43,23 @@ class EventModel(object):
         column_id = self.id
         value = self.event_name
         insert_relation_by_id(key, column_id, value)
+
+    @profile
+    @inlineCallbacks
+    def get_properties(self):   
+        key = (self.user_name, self.bucket_name, "event", self.shard)
+        data = yield get_counter(key, prefix=self.id)
+        property_ids = set([column_id[0:32] for column_id in data])
+        property_ids.remove(_32_BYTE_FILLER)
+        key = (self.user_name, self.bucket_name, "property")
+        column_ids = property_ids
+        data = yield get_relation(key, column_ids=column_ids)
+        result = defaultdict(dict)
+        for column_id in data:
+            name, value = ujson.loads(data[column_id])
+            property_id = column_id[0:32]
+            result[name][property_id] = value
+        returnValue(result)
 
     @profile
     def get_name(self):   
@@ -111,7 +128,7 @@ class EventModel(object):
         """
         key = (self.user_name, self.bucket_name, hash_value, self.shard)
         data = yield get_counter(key, prefix=self.id)
-        result = defaultdict(dict)
+        result = defaultdict(lambda:defaultdict(lambda:0))
         for column_id in data:
             property_id = column_id[0:32]
             if property_id == _32_BYTE_FILLER:
@@ -161,7 +178,7 @@ class EventModel(object):
                 property_id = self.id
             result[property_id].append((timestamp, data[column_id]))
         for property_id in result:
-            result[property_id] = sorted(result[property_id], lambda x:x[0])
+            result[property_id] = sorted(result[property_id], key=lambda x:x[0])
         returnValue(result)
  
     @profile
@@ -224,7 +241,7 @@ class EventModel(object):
         key = (self.user_name, self.bucket_name, hash_value, self.shard)
         prefix = self.id
         data = yield get_counter(key, prefix=prefix)
-        result = defaultdict(dict)
+        result = defaultdict(lambda:defaultdict(lambda:0))
         for column_id in data:
             property_id = column_id[0:32]
             event_id = column_id[32:]
@@ -266,14 +283,17 @@ class EventModel(object):
         key = (self.user_name, self.bucket_name, hash_value, self.shard)
         prefix = self.id
         data = yield get_counter(key, prefix=prefix)
-        result = defaultdict(lambda:defaultdict(list))
+        result = defaultdict(lambda:defaultdict(lambda:defaultdict(lambda:0)))
         for column_id in data:
             timestamp = unpack_timestamp(column_id[0:4])
             property_id = column_id[4:36]
             event_id = column_id[36:]
             if property_id == _32_BYTE_FILLER:
                 property_id = self.id
-            result[property_id][event_id].append((timestamp, data[column_id]))
+            result[property_id][event_id][timestamp] += data[column_id]
+        for property_id in result:
+            for event_id in result[property_id]:
+                result[property_id][event_id] = sorted(result[property_id][event_id].items(), key=lambda x:x[0])
         returnValue(result)
 
     @profile

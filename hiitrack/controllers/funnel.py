@@ -135,41 +135,26 @@ class Funnel(object):
             base_funnel.append((
                 new_event_id,
                 paths[new_event_id][new_event_id][event_id]))
-            try:
-                base_unique_funnel.append((
-                    new_event_id,
-                    unique_paths[new_event_id][new_event_id][event_id]))
-            except KeyError:
-                base_unique_funnel.append((new_event_id, 0))
+            base_unique_funnel.append((
+                new_event_id,
+                unique_paths[new_event_id][new_event_id][event_id]))
         funnels = {}
         unique_funnels = {}
         for property_id in property_ids:
             event_id = event_ids[0]
-            try:
-                _funnel = [(event_id, totals[event_id][property_id])]
-            except KeyError:
-                _funnel = [(event_id, 0)]
-            try:
-                unique_funnel = [(
-                    event_id,
-                    unique_totals[event_id][property_id])]
-            except KeyError:
-                unique_funnel = [(event_id, 0)]
+            _funnel = [(event_id, totals[event_id][property_id])]
+            unique_funnel = [(event_id, unique_totals[event_id][property_id])]
             for i in range(1, len(event_ids)):
                 event_id = event_ids[i - 1]
                 new_event_id = event_ids[i]
-                try:
-                    _funnel.append((
-                        new_event_id,
-                        paths[new_event_id][property_id][event_id]))
-                except KeyError:
-                    _funnel.append((new_event_id, 0))
-                try:
-                    unique_funnel.append((
-                        new_event_id,
-                        unique_paths[new_event_id][property_id][event_id]))
-                except KeyError:
-                    unique_funnel.append((new_event_id, 0))
+                if event_id not in paths[new_event_id][property_id]:
+                    continue
+                _funnel.append((
+                    new_event_id,
+                    paths[new_event_id][property_id][event_id]))
+                unique_funnel.append((
+                    new_event_id,
+                    unique_paths[new_event_id][property_id][event_id]))
             funnels[property_id] = _funnel
             unique_funnels[property_id] = unique_funnel
         returnValue({

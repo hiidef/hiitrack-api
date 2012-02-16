@@ -95,14 +95,6 @@ class BucketTestCase(unittest.TestCase):
         self.assertEqual(result.code, 200)
         returned_description = ujson.decode(result.body)["description"]
         result = yield request(
-            "GET",
-            self.url,
-            username=self.username,
-            password=self.password)        
-        self.assertEqual(result.code, 200)
-        buckets = ujson.decode(result.body)["buckets"]
-        self.assertTrue(BUCKETNAME in buckets)
-        result = yield request(
             "DELETE",
             "%s/%s" % (self.url, BUCKETNAME),
             username=self.username,

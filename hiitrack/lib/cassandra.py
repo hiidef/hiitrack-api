@@ -163,6 +163,7 @@ def get_relation(
         column=None,
         column_id=None,
         prefix=None,
+        column_ids=None,
         consistency=None,
         count=10000):
     """
@@ -183,6 +184,14 @@ def get_relation(
             consistency=consistency,
             column=pack_hash(column))
         returnValue(result.column.value)
+    elif column_ids:
+        result = yield CLIENT.get_slice(
+            key=key,
+            column_family="relation",
+            names=column_ids,
+            consistency=consistency,
+            count=count)
+        returnValue(cols_to_dict(result))        
     else:
         if prefix:
             start = prefix

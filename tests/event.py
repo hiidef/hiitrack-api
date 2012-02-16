@@ -259,6 +259,7 @@ class EventTestCase(unittest.TestCase):
         property_1_id = properties[property_1_key][property_1_value]
         property_2_id = properties[property_2_key][property_2_value]
         property_3_id = properties[property_3_key][property_3_value]
+        self.assertEqual(event_1["properties"][property_1_id[0:16]]["values"][property_1_id], property_1_value)
         # Paths
         self.assertEqual(event_1["path"][event_1_id][event_1_id], 1)
         self.assertTrue(event_2_id not in event_1["path"][event_1_id])
