@@ -99,7 +99,7 @@ class Dispatcher(Resource):
             d.addCallback(ujson.dumps)
             if "callback" in request.args:
                 d.addCallback(self._add_jsonp_callback, request)
-            d.addCallback(self._gzip_response, request)
+            d.addCallback(self._finish_response, request)
             return NOT_DONE_YET
         else:
             request.setResponseCode(404)
@@ -124,20 +124,6 @@ class Dispatcher(Resource):
     def _add_jsonp_callback(self, data, request):
         return "%s(%s);" % (request.args["callback"][0], data)
 
-    def _gzip_response(self, data, request):
-        encoding = request.getHeader("accept-encoding")
-        if encoding and "gzip" in encoding:
-            zbuf = StringIO()
-            zfile = gzip.GzipFile(None, 'wb', 9, zbuf)
-            if isinstance(data, unicode):
-                zfile.write(unicode(data).encode("utf-8"))
-            elif isinstance(data, str):
-                zfile.write(unicode(data, 'utf-8').encode("utf-8"))
-            else:
-                zfile.write(unicode(data).encode("utf-8"))
-            zfile.close()
-            request.setHeader("Content-encoding", "gzip")
-            request.write(zbuf.getvalue())
-        else:
-            request.write(data)
+    def _finish_response(self, data, request):
+        request.write(data)
         request.finish()

@@ -75,5 +75,5 @@ class PropertyTestCase(unittest.TestCase):
             self.url,
             username=self.username,
             password=self.password)
-        self.assertTrue(NAME in ujson.loads(result.body)["properties"])
+        self.assertTrue(NAME in ujson.loads(result.body)["properties"].values())
 

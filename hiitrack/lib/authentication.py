@@ -41,9 +41,18 @@ def authenticate(method):
             try:
                 assert TTL_CACHE[user_name] == password
             except KeyError:
-                password_is_valid = yield user.validate_password(password)
-                assert password_is_valid
-                TTL_CACHE[user_name] = password
+                pass
+            valid = yield user.validate_password(password)
+            assert valid
+            TTL_CACHE[user_name] = password
+            #try:
+            #    assert valid
+            #    TTL_CACHE[user_name] = password
+            #except:
+            #    if "bucket_name" in kwargs:
+            #        bucket = BucketModel(user_name, kwargs["bucket_name"][0])
+            #        valid = yield bucket.validate_password(password)
+            #        assert valid
         except (AssertionError, NotFoundException):
             request.setResponseCode(401)
             if request.getHeader("X-Requested-With") != "XMLHttpRequest":

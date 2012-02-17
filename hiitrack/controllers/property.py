@@ -86,7 +86,7 @@ class Property(object):
         totals = yield _property.get_totals()
         values = dict([(
             uri_b64encode(x), 
-            {"value":values[x], "total":b64encode_keys(totals[x])}) 
+            {"value": values[x], "total": b64encode_keys(totals[x])}) 
             for x in values])
         returnValue({
             "id":uri_b64encode(_property.id),

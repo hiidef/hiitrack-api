@@ -23,28 +23,6 @@ class VisitorModel(object):
         self.bucket_name = bucket_name
         self.id = pack_hash((user_name, bucket_name, visitor_id))
         self.shard = self.id[0]
-        
-    @profile
-    @inlineCallbacks
-    def get_property_ids(self):
-        """
-        Return ids of visitor properties.
-        """
-        key = (self.user_name, self.bucket_name, "visitor_property", self.shard)
-        prefix = self.id
-        data = yield get_counter(key, prefix=prefix)
-        returnValue(data.keys())
-    
-    @profile
-    @inlineCallbacks
-    def get_event_ids(self):
-        """
-        Return ids of visitor events.
-        """
-        key = (self.user_name, self.bucket_name, "visitor_event", self.shard)
-        prefix = self.id
-        data = yield get_counter(key, prefix=prefix)
-        returnValue(data.keys())
 
     @profile
     @inlineCallbacks

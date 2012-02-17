@@ -54,21 +54,6 @@ class BatchTestCase(unittest.TestCase):
         self.hiitrack.stopService()
 
     @inlineCallbacks
-    def get_property_dict(self):
-        result = yield request(
-            "GET",
-            self.url,
-            username=self.user_name,
-            password=self.password)
-        self.assertEqual(result.code, 200)
-        result = ujson.loads(result.body)["properties"]
-        response = defaultdict(dict)
-        for property_name in result:
-            for property_value in result[property_name]:
-                response[property_name][property_value["value"]] = property_value["id"]
-        returnValue(response)
-
-    @inlineCallbacks
     def get_event_dict(self):
         result = yield request(
             "GET",
@@ -92,14 +77,15 @@ class BatchTestCase(unittest.TestCase):
 
     @inlineCallbacks
     def get_property(self, name):
-        properties = yield self.get_property_dict()
         result = yield request(
             "GET",
             str("%s/property/%s" % (self.url, quote(name))),
             username=self.user_name,
             password=self.password)
         self.assertEqual(result.code, 200)
-        returnValue(ujson.loads(result.body))
+        data = ujson.loads(result.body)
+        data["value_ids"] = dict([(data["values"][x]["value"], x) for x in data["values"]]) 
+        returnValue(data)
 
     @inlineCallbacks
     def test_batch_insert(self):
@@ -168,13 +154,12 @@ class BatchTestCase(unittest.TestCase):
         event_1_id = events[event_name_1]
         event_2_id = events[event_name_2]
         event_3_id = events[event_name_3]
-        properties = yield self.get_property_dict()
         property_1 = yield self.get_property(property_1_key)
         property_2 = yield self.get_property(property_2_key)
         property_3 = yield self.get_property(property_3_key)
-        property_1_id = properties[property_1_key][property_1_value]
-        property_2_id = properties[property_2_key][property_2_value]
-        property_3_id = properties[property_3_key][property_3_value]
+        property_1_id = property_1["value_ids"][property_1_value]
+        property_2_id = property_2["value_ids"][property_2_value]
+        property_3_id = property_3["value_ids"][property_3_value]
         # Event totals
         self.assertEqual(event_1["total"][event_1_id], 2)
         self.assertEqual(event_2["total"][event_2_id], 1)

@@ -51,21 +51,6 @@ class FunnelTestCase(unittest.TestCase):
         self.hiitrack.stopService()
 
     @inlineCallbacks
-    def get_property_dict(self):
-        result = yield request(
-            "GET",
-            self.url,
-            username=self.username,
-            password=self.password)
-        self.assertEqual(result.code, 200)
-        result = ujson.loads(result.body)["properties"]
-        response = defaultdict(dict)
-        for property_name in result:
-            for property_value in result[property_name]:
-                response[property_name][property_value["value"]] = property_value["id"]
-        returnValue(response)
-
-    @inlineCallbacks
     def get_event_dict(self):
         result = yield request(
             "GET",
@@ -76,6 +61,18 @@ class FunnelTestCase(unittest.TestCase):
         events = ujson.loads(result.body)["events"].items()
         result = dict([(k, v["id"]) for k,v in events])
         returnValue(result)
+
+    @inlineCallbacks
+    def get_property(self, name):
+        result = yield request(
+            "GET",
+            str("%s/property/%s" % (self.url, quote(name))),
+            username=self.username,
+            password=self.password)
+        self.assertEqual(result.code, 200)
+        data = ujson.loads(result.body)
+        data["value_ids"] = dict([(data["values"][x]["value"], x) for x in data["values"]]) 
+        returnValue(data)
 
     @inlineCallbacks
     def post_property(self, visitor_id, name, value):
@@ -204,12 +201,13 @@ class FunnelTestCase(unittest.TestCase):
         yield self.post_property(VISITOR_ID_1, PROPERTY_2, VALUE_2)
         yield self.post_property(VISITOR_ID_2, PROPERTY_2, VALUE_2)
         events = yield self.get_event_dict()
-        properties = yield self.get_property_dict()
         event_id_1 = events[EVENT_1]
         event_id_2 = events[EVENT_2]
         event_id_3 = events[EVENT_3]
-        property_id_1 = properties[PROPERTY_1][VALUE_1]
-        property_id_2 = properties[PROPERTY_2][VALUE_2]
+        property_1 = yield self.get_property(PROPERTY_1)
+        property_id_1 = property_1["value_ids"][VALUE_1]
+        property_2 = yield self.get_property(PROPERTY_2)
+        property_id_2 = property_2["value_ids"][VALUE_2]
         FUNNEL_NAME = uuid.uuid4().hex
         DESCRIPTION = uuid.uuid4().hex
         result = yield request(

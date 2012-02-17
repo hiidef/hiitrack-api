@@ -80,7 +80,6 @@ class Event(object):
             for property_id in property_data[name]:
                 property_prefix_id = uri_b64encode(property_id[0:16])
                 properties[property_prefix_id] = {
-                    "id": property_prefix_id, 
                     "name": name}
                 values[uri_b64encode(property_id)] = property_data[name][property_id]
             properties[property_prefix_id]["values"] = values

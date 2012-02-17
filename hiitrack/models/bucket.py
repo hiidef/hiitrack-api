@@ -8,6 +8,7 @@ a user.
 
 from collections import defaultdict
 import ujson
+from hashlib import sha1
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from telephus.cassandra.c08.ttypes import NotFoundException
 from pylru import lrucache
@@ -99,6 +100,12 @@ class BucketModel(object):
 
     @profile
     @inlineCallbacks
+    def validate_password(self, password):
+        _password_hash = yield get_user(self.user_name, "hash")
+        returnValue(False)
+
+    @profile
+    @inlineCallbacks
     def exists(self):
         """
         Verify bucket exists.
@@ -125,30 +132,14 @@ class BucketModel(object):
 
     @profile
     @inlineCallbacks
-    def get_property_ids(self):
-        """
-        Return property ids in bucket.
-        """
-        key = (self.user_name, self.bucket_name, "property")
-        data = yield get_relation(key)
-        returnValue(data.keys())
-
-    @profile
-    @inlineCallbacks
     def get_properties(self):
         """
         Return nested dictionary of
         property_name -> property_value -> property_id in bucket.
         """
-        key = (self.user_name, self.bucket_name, "property")
+        key = (self.user_name, self.bucket_name, "property_name")
         data = yield get_relation(key)
-        properties = defaultdict(list)
-        for property_id in data:
-            name, value = ujson.loads(data[property_id])
-            properties[name].append({
-                "value":value, 
-                "id":property_id})
-        returnValue(properties)
+        returnValue(dict([(x, ujson.loads(data[x])) for x in data]))
 
     @profile
     @inlineCallbacks

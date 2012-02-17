@@ -40,10 +40,10 @@ class PropertyModel(object):
         """
         Return the name of the property.
         """
-        key = (self.user_name, self.bucket_name, "property")
-        prefix = self.id
-        data = yield get_relation(key, prefix=prefix, count=1)
-        returnValue(ujson.loads(data.values().pop())[0])
+        key = (self.user_name, self.bucket_name, "property_name")
+        column_id = self.id
+        data = yield get_relation(key, column_id=column_id)
+        returnValue(ujson.loads(data))
 
     @inlineCallbacks
     def get_values(self):
@@ -85,6 +85,10 @@ class PropertyValueModel(object):
         key = (self.user_name, self.bucket_name, "property")
         column_id = self.id
         value = ujson.dumps((self.property_name, self.property_value))
+        insert_relation_by_id(key, column_id, value)
+        key = (self.user_name, self.bucket_name, "property_name")
+        column_id = self.id[0:16]
+        value = ujson.dumps(self.property_name)
         insert_relation_by_id(key, column_id, value)
 
     def get_name_and_value(self):
