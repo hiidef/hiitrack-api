@@ -11,7 +11,7 @@ setup(
     dependency_links = [
         'https://github.com/steiza/txroutes/zipball/master#egg=txroutes-0.0.2',
         'https://github.com/hiidef/Telephus/zipball/master#egg=telephus-1.0.0',
-        'https://github.com/hiidef/cityhash/zipball/master#egg=cityhash-0.2.0'],
+        'https://github.com/Amper/cityhash/zipball/master#egg=cityhash-0.2.0'],
 
     install_requires = [
         'Routes>=1.12.3',
