@@ -11,7 +11,7 @@ setup(
     dependency_links = [
         'https://github.com/hiidef/pylogd/zipball/master#egg=pylogd-0.3',
         'https://github.com/steiza/txroutes/zipball/master#egg=txroutes-0.0.2',
-        'https://github.com/hiidef/Telephus/zipball/master#egg=telephus-1.0.0_beta1',
+        'https://github.com/hiidef/Telephus/zipball/master#egg=telephus-1.0.0beta1',
         'https://github.com/Amper/cityhash/zipball/master#egg=cityhash-0.2.0'],
 
     install_requires = [
@@ -20,7 +20,7 @@ setup(
         'thrift>=0.8.0',
         'ujson>=1.15',
         'cityhash>=0.2.0',
-        'telephus>=1.0.0_beta1',
+        'telephus>=1.0.0beta1',
         'txroutes>=0.0.2',
         'ordereddict>=1.1',
         'pylogd>=0.3',
