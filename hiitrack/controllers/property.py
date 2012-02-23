@@ -108,6 +108,7 @@ def _get(_property, property_name):
     """
     values = yield _property.get_values()
     totals = yield _property.get_totals()
+    events = yield _property.get_events()
     values = dict([(
         uri_b64encode(x),
         {"value": values[x], "total": b64encode_keys(totals[x])})
@@ -115,4 +116,5 @@ def _get(_property, property_name):
     returnValue({
         "id":uri_b64encode(_property.id),
         "name":property_name,
-        "values":values})
+        "values":values,
+        "events":b64encode_keys(events)})

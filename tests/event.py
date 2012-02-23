@@ -362,6 +362,16 @@ class EventTestCase(unittest.TestCase):
         self.assertEqual(event_3_property_3["unique_paths"][property_3_id][event_1_id], 1)
         self.assertEqual(event_3_property_3["unique_paths"][property_3_id][event_2_id], 1)
         self.assertTrue(event_3_id not in event_3_property_3["unique_paths"][property_3_id])   
+        # Events by property
+        self.assertEqual(property_1["events"][event_1_id], event_name_1)
+        self.assertEqual(property_2["events"][event_1_id], event_name_1)
+        self.assertEqual(property_3["events"][event_1_id], event_name_1)
+        self.assertEqual(property_1["events"][event_2_id], event_name_2)
+        self.assertEqual(property_2["events"][event_2_id], event_name_2)
+        self.assertEqual(property_3["events"][event_2_id], event_name_2)
+        self.assertEqual(property_1["events"][event_3_id], event_name_3)
+        self.assertEqual(property_2["events"][event_3_id], event_name_3)
+        self.assertEqual(property_3["events"][event_3_id], event_name_3)
         # Property names and values
         self.assertEqual(property_1["name"], property_1_key)
         self.assertEqual(property_2["name"], property_2_key)

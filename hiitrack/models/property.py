@@ -6,6 +6,7 @@ Properties are key/value pairs linked to a visitor and stored in buckets.
 """
 
 import ujson
+from itertools import chain
 from twisted.internet.defer import inlineCallbacks, returnValue
 from collections import defaultdict
 from ..lib.hash import pack_hash
@@ -71,6 +72,16 @@ class PropertyModel(object):
             event_id = column_id[16:]
             response[property_id][event_id] = data[column_id]
         returnValue(response)
+
+    @inlineCallbacks
+    def get_events(self):
+        key = (self.user_name, self.bucket_name, "property", self.id[0])
+        prefix = self.id
+        data = yield get_counter(key, prefix=prefix)
+        column_ids = set([column_id[16:] for column_id in data])
+        key = (self.user_name, self.bucket_name, "event")
+        events = yield get_relation(key, column_ids=column_ids)
+        returnValue(events)
 
 
 class PropertyValueModel(object):

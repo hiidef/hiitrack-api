@@ -169,7 +169,6 @@ def delete_user(key, consistency=None):
         column_family="user",
         consistency=consistency)
 
-
 @profile
 @inlineCallbacks
 def get_relation(
