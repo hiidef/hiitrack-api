@@ -44,7 +44,7 @@ class Dispatcher(Resource):
         return self
 
     def render(self, request):
-        if request.path[-1:] == "/":    
+        if request.path[-1:] == "/":
             request.setHeader("location", request.path[:-1])
             request.setResponseCode(301)
             return ""

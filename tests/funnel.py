@@ -225,45 +225,85 @@ class FunnelTestCase(unittest.TestCase):
             "GET",
             "%s/funnel/%s" % (self.url, FUNNEL_NAME),
             username=self.username,
-            password=self.password)        
+            password=self.password) 
         self.assertEqual(result.code, 200)
         funnel = ujson.decode(result.body)["funnel"]
         unique_funnel = ujson.decode(result.body)["unique_funnel"]
-        funnels = ujson.decode(result.body)["funnels"]
-        unique_funnels = ujson.decode(result.body)["unique_funnels"]
         self.assertEqual(funnel[0][0], event_id_1)
         self.assertEqual(funnel[1][0], event_id_2)
         self.assertEqual(funnel[2][0], event_id_3)
-        self.assertEqual(funnels[property_id_1][0][0], event_id_1)
-        self.assertEqual(funnels[property_id_1][1][0], event_id_2)
-        self.assertEqual(funnels[property_id_1][2][0], event_id_3)
-        self.assertEqual(funnels[property_id_2][0][0], event_id_1)
-        self.assertEqual(funnels[property_id_2][1][0], event_id_2)
-        self.assertEqual(funnels[property_id_2][2][0], event_id_3)
         self.assertEqual(funnel[0][1], 4)
         self.assertEqual(funnel[1][1], 3)
         self.assertEqual(funnel[2][1], 2)
-        self.assertEqual(funnels[property_id_1][0][1], 2)
-        self.assertEqual(funnels[property_id_1][1][1], 2)
-        self.assertEqual(funnels[property_id_1][2][1], 2)
-        self.assertEqual(funnels[property_id_2][0][1], 3)
-        self.assertEqual(funnels[property_id_2][1][1], 3)
-        self.assertEqual(funnels[property_id_2][2][1], 2)
         self.assertEqual(unique_funnel[0][0], event_id_1)
         self.assertEqual(unique_funnel[1][0], event_id_2)
         self.assertEqual(unique_funnel[2][0], event_id_3)
-        self.assertEqual(unique_funnels[property_id_1][0][0], event_id_1)
-        self.assertEqual(unique_funnels[property_id_1][1][0], event_id_2)
-        self.assertEqual(unique_funnels[property_id_1][2][0], event_id_3)
-        self.assertEqual(unique_funnels[property_id_2][0][0], event_id_1)
-        self.assertEqual(unique_funnels[property_id_2][1][0], event_id_2)
-        self.assertEqual(unique_funnels[property_id_2][2][0], event_id_3)
         self.assertEqual(unique_funnel[0][1], 3)
         self.assertEqual(unique_funnel[1][1], 2)
         self.assertEqual(unique_funnel[2][1], 1)
+        FUNNEL_NAME_2 = uuid.uuid4().hex
+        result = yield request(
+            "POST",
+            "%s/funnel/%s" % (self.url, FUNNEL_NAME_2),
+            username=self.username,
+            password=self.password,
+            data=[
+                ("description", DESCRIPTION),
+                ("event_id", event_id_1),
+                ("event_id", event_id_2),
+                ("event_id", event_id_3),
+                ("property", PROPERTY_1)])
+        self.assertEqual(result.code, 201)
+        result = yield request(
+            "GET",
+            "%s/funnel/%s" % (self.url, FUNNEL_NAME_2),
+            username=self.username,
+            password=self.password) 
+        self.assertEqual(result.code, 200)
+        funnels = ujson.decode(result.body)["funnels"]
+        unique_funnels = ujson.decode(result.body)["unique_funnels"]
+        self.assertEqual(funnels[property_id_1][0][0], event_id_1)
+        self.assertEqual(funnels[property_id_1][1][0], event_id_2)
+        self.assertEqual(funnels[property_id_1][2][0], event_id_3)
+        self.assertEqual(funnels[property_id_1][0][1], 2)
+        self.assertEqual(funnels[property_id_1][1][1], 2)
+        self.assertEqual(funnels[property_id_1][2][1], 2)
+        self.assertEqual(unique_funnels[property_id_1][0][0], event_id_1)
+        self.assertEqual(unique_funnels[property_id_1][1][0], event_id_2)
+        self.assertEqual(unique_funnels[property_id_1][2][0], event_id_3)
         self.assertEqual(unique_funnels[property_id_1][0][1], 1)
         self.assertEqual(unique_funnels[property_id_1][1][1], 1)
         self.assertEqual(unique_funnels[property_id_1][2][1], 1)
+        FUNNEL_NAME_3 = uuid.uuid4().hex
+        result = yield request(
+            "POST",
+            "%s/funnel/%s" % (self.url, FUNNEL_NAME_3),
+            username=self.username,
+            password=self.password,
+            data=[
+                ("description", DESCRIPTION),
+                ("event_id", event_id_1),
+                ("event_id", event_id_2),
+                ("event_id", event_id_3),
+                ("property", PROPERTY_2)])
+        self.assertEqual(result.code, 201)
+        result = yield request(
+            "GET",
+            "%s/funnel/%s" % (self.url, FUNNEL_NAME_3),
+            username=self.username,
+            password=self.password) 
+        self.assertEqual(result.code, 200)
+        funnels = ujson.decode(result.body)["funnels"]
+        unique_funnels = ujson.decode(result.body)["unique_funnels"]
+        self.assertEqual(funnels[property_id_2][0][0], event_id_1)
+        self.assertEqual(funnels[property_id_2][1][0], event_id_2)
+        self.assertEqual(funnels[property_id_2][2][0], event_id_3)
+        self.assertEqual(funnels[property_id_2][0][1], 3)
+        self.assertEqual(funnels[property_id_2][1][1], 3)
+        self.assertEqual(funnels[property_id_2][2][1], 2)
+        self.assertEqual(unique_funnels[property_id_2][0][0], event_id_1)
+        self.assertEqual(unique_funnels[property_id_2][1][0], event_id_2)
+        self.assertEqual(unique_funnels[property_id_2][2][0], event_id_3)
         self.assertEqual(unique_funnels[property_id_2][0][1], 2)
         self.assertEqual(unique_funnels[property_id_2][1][1], 2)
         self.assertEqual(unique_funnels[property_id_2][2][1], 1)

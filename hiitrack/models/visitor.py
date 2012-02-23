@@ -7,8 +7,7 @@ Visitors are stored in buckets and can have properties and events.
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from ..lib.hash import pack_hash
-from ..lib.cassandra import get_relation, get_counter, increment_counter, \
-    insert_relation_by_id, get_counters
+from ..lib.cassandra import get_counter, increment_counter, get_counters
 from collections import defaultdict
 from ..lib.profiler import profile
 
@@ -26,7 +25,10 @@ class VisitorModel(object):
 
     @profile
     @inlineCallbacks
-    def get_metadata(self):    
+    def get_metadata(self):
+        """
+        Returns a visitor's events, path, and properties.
+        """
         keys = [
             (self.user_name, self.bucket_name, "visitor_event", self.shard),
             (self.user_name, self.bucket_name, "visitor_path", self.shard),
@@ -43,7 +45,7 @@ class VisitorModel(object):
             event_id = column_id[16:32]
             path_result[new_event_id][event_id] += paths[column_id]
         returnValue((events_result, path_result, properties.keys()))
-        
+
     @profile
     def add_property(self, _property):
         """
@@ -77,7 +79,7 @@ class VisitorModel(object):
             event_id = column_id[16:32]
             result[new_event_id][event_id] += data[column_id]
         returnValue(result)
-    
+
     @profile
     def increment_total(self, event_id):
         """
@@ -86,7 +88,7 @@ class VisitorModel(object):
         key = (self.user_name, self.bucket_name, "visitor_event", self.shard)
         column_id = "".join([self.id, event_id])
         increment_counter(key, column_id=column_id)
-    
+
     @profile
     @inlineCallbacks
     def get_total(self):

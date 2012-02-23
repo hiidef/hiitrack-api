@@ -12,6 +12,10 @@ PROTECTED = set(["ttl", "timestamps", "_prune"])
 
 
 class TTLDict(dict):
+    """
+    Dictionary that deletes keys after a period of time when accessed through
+    __getitem__()
+    """
 
     def __init__(self, *args, **kwargs):
         try:

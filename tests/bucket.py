@@ -9,7 +9,7 @@ import uuid
 import ujson
 from base64 import b64encode
 from urllib import urlencode
-
+from hashlib import sha1
 
 class BucketTestCase(unittest.TestCase):
     
@@ -69,6 +69,31 @@ class BucketTestCase(unittest.TestCase):
             username=self.username2,
             password=self.password2)        
         self.assertEqual(result.code, 401)
+        result = yield request(
+            "DELETE",
+            "%s/%s" % (self.url, BUCKETNAME),
+            username=self.username,
+            password=self.password)
+        self.assertEqual(result.code, 200)
+
+    @inlineCallbacks
+    def test_bucket_access(self):
+        BUCKETNAME = uuid.uuid4().hex
+        DESCRIPTION = uuid.uuid4().hex
+        result = yield request(
+            "POST",
+            "%s/%s" % (self.url, BUCKETNAME),
+            username=self.username,
+            password=self.password,
+            data={"description":DESCRIPTION})
+        self.assertEqual(result.code, 201)
+        bucket_pass = b64encode(sha1("%s:%s" % (BUCKETNAME, sha1("%s:%s" % (self.username, self.password)).digest())).digest())
+        result = yield request(
+            "GET",
+            "%s/%s" % (self.url, BUCKETNAME),
+            username=self.username,
+            password=bucket_pass)        
+        self.assertEqual(result.code, 200)
         result = yield request(
             "DELETE",
             "%s/%s" % (self.url, BUCKETNAME),

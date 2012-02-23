@@ -17,7 +17,6 @@ from .controllers.funnel import Funnel
 from .lib import cassandra
 from .lib.profiler import EXECUTION_TIME, EXECUTION_COUNT
 from twisted.internet.task import LoopingCall
-from pprint import pformat
 
 
 class HiiTrack(Service):
@@ -28,8 +27,8 @@ class HiiTrack(Service):
     listener = None
 
     def __init__(
-            self, 
-            port=8080, 
+            self,
+            port=8080,
             cassandra_settings=None):
         if not cassandra_settings:
             cassandra_settings = {}
@@ -53,6 +52,9 @@ class HiiTrack(Service):
         self.port = port
 
     def log(self):
+        """
+        Periodically logs running speed of various methods.
+        """
         timers = sorted([(EXECUTION_TIME[name], EXECUTION_COUNT[name], name)
             for name in EXECUTION_TIME], key=lambda x:x[0], reverse=True)
         for timer in timers:

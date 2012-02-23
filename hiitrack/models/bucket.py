@@ -6,17 +6,16 @@ Buckets are a collection of events, properties, and funnels belonging to
 a user.
 """
 
-from collections import defaultdict
 import ujson
-from hashlib import sha1
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from telephus.cassandra.c08.ttypes import NotFoundException
 from pylru import lrucache
-from ..lib.cassandra import get_relation, insert_relation, delete_relation, \
-    delete_counter, get_user, insert_relation_by_id, delete_relations, delete_counters
+from ..lib.cassandra import get_relation, delete_relation, get_user, \
+    insert_relation_by_id, delete_relations, delete_counters
 from ..exceptions import BucketException, UserException
 from ..lib.profiler import profile
-from .property import PropertyValueModel
+from ..lib.hash import password_hash
+from base64 import b64encode
 
 
 LRU_CACHE = lrucache(1000)
@@ -33,7 +32,7 @@ def bucket_check(method):
         """
         request = args[1]
         # Dispatcher makes some args into kwargs.
-        bucket = BucketModel(kwargs["user_name"],  kwargs["bucket_name"])
+        bucket = BucketModel(kwargs["user_name"], kwargs["bucket_name"])
         if not bucket.cached():
             _exists = yield bucket.exists()
             if not _exists:
@@ -65,7 +64,7 @@ def bucket_create(method):
                 _user_exists = yield bucket.user_exists()
                 if not _user_exists:
                     request.setResponseCode(404)
-                    raise UserException("User %s does not exist." % user_name)               
+                    raise UserException("User %s does not exist." % user_name)
                 yield bucket.create(bucket_name)
         data = yield method(*args, **kwargs)
         returnValue(data)
@@ -96,13 +95,20 @@ class BucketModel(object):
             returnValue(False)
 
     def cached(self):
+        """
+        Check local cache for bucket's existence
+        """
         return self.cache_key in LRU_CACHE
 
     @profile
     @inlineCallbacks
     def validate_password(self, password):
-        _password_hash = yield get_user(self.user_name, "hash")
-        returnValue(False)
+        try:
+            _hash = yield get_user(self.user_name, "hash")
+        except NotFoundException:
+            returnValue(False)
+        _bucket_hash = b64encode(password_hash(self.bucket_name, _hash))
+        returnValue(password == _bucket_hash)
 
     @profile
     @inlineCallbacks
@@ -174,31 +180,22 @@ class BucketModel(object):
         deferreds = []
         deferreds.append(delete_relation(key, column_id=column_id))
         keys = [
-            (self.user_name, self.bucket_name, "event"), 
-            (self.user_name, self.bucket_name, "funnel"), 
-            (self.user_name, self.bucket_name, "property")]
+                (self.user_name, self.bucket_name, "event"),
+                (self.user_name, self.bucket_name, "funnel"),
+                (self.user_name, self.bucket_name, "property"),
+                (self.user_name, self.bucket_name, "property_name")]
         for i in range(0, 256):
             shard = chr(i)
-            keys.extend([
-                (self.user_name, self.bucket_name, "visitor_property", shard)])
+            keys.extend([(self.user_name, self.bucket_name, "visitor_property", shard)])
         deferreds.append(delete_relations(keys))
         keys = []
+        hash_keys = ["property", "event", "hourly_event", "daily_event", 
+                     "unique_event", "hourly_unique_event", 
+                     "daily_unique_event", "path", "hourly_path", 
+                     "daily_path", "unique_path", "hourly_unique_path", 
+                     "daily_unique_path", "visitor_event", "visitor_path"]
         for i in range(0, 256):
-            shard = chr(i)
-            keys.extend([(self.user_name, self.bucket_name, "property", shard),
-                (self.user_name, self.bucket_name, "event", shard),
-                (self.user_name, self.bucket_name, "hourly_event", shard),
-                (self.user_name, self.bucket_name, "daily_event", shard),
-                (self.user_name, self.bucket_name, "unique_event", shard),
-                (self.user_name, self.bucket_name, "hourly_unique_event", shard),
-                (self.user_name, self.bucket_name, "daily_unique_event", shard),
-                (self.user_name, self.bucket_name, "path", shard),
-                (self.user_name, self.bucket_name, "hourly_path", shard),
-                (self.user_name, self.bucket_name, "daily_path", shard),
-                (self.user_name, self.bucket_name, "unique_path", shard),
-                (self.user_name, self.bucket_name, "hourly_unique_path", shard),
-                (self.user_name, self.bucket_name, "daily_unique_path", shard),
-                (self.user_name, self.bucket_name, "visitor_event", shard),
-                (self.user_name, self.bucket_name, "visitor_path", shard)])
+            keys.extend([(self.user_name, self.bucket_name, x, chr(i)) 
+                for x in hash_keys])
         deferreds.append(delete_counters(keys))
         yield DeferredList(deferreds)

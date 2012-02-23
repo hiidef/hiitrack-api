@@ -66,10 +66,21 @@ class BatchTestCase(unittest.TestCase):
         returnValue(result)
 
     @inlineCallbacks
-    def get_event(self, name):
+    def get_event(self, name, _property=None, start=None, finish=None, interval="day"):
+        url = str("%s/event/%s" % (self.url, quote(name)))
+        qs = {}
+        if start:
+            qs["start"] = start
+            qs["interval"] = interval
+            if finish:
+                qs["finish"] = finish
+        if _property:
+            qs["property"] = _property
+        if qs:
+            url += "?%s" % urlencode(qs)
         result = yield request(
             "GET",
-            str("%s/event/%s" % (self.url, quote(name))),
+            url,
             username=self.user_name,
             password=self.password)
         self.assertEqual(result.code, 200)
@@ -150,6 +161,15 @@ class BatchTestCase(unittest.TestCase):
         event_1 = yield self.get_event(event_name_1)
         event_2 = yield self.get_event(event_name_2)
         event_3 = yield self.get_event(event_name_3)
+        event_1_property_1 = yield self.get_event(event_name_1, _property=property_1_key)
+        event_2_property_1 = yield self.get_event(event_name_2, _property=property_1_key)
+        event_3_property_1 = yield self.get_event(event_name_3, _property=property_1_key)
+        event_1_property_2 = yield self.get_event(event_name_1, _property=property_2_key)
+        event_2_property_2 = yield self.get_event(event_name_2, _property=property_2_key)
+        event_3_property_2 = yield self.get_event(event_name_3, _property=property_2_key)
+        event_1_property_3 = yield self.get_event(event_name_1, _property=property_3_key)
+        event_2_property_3 = yield self.get_event(event_name_2, _property=property_3_key)
+        event_3_property_3 = yield self.get_event(event_name_3, _property=property_3_key)
         events = yield self.get_event_dict()
         event_1_id = events[event_name_1]
         event_2_id = events[event_name_2]
@@ -161,19 +181,19 @@ class BatchTestCase(unittest.TestCase):
         property_2_id = property_2["value_ids"][property_2_value]
         property_3_id = property_3["value_ids"][property_3_value]
         # Event totals
-        self.assertEqual(event_1["total"][event_1_id], 2)
-        self.assertEqual(event_2["total"][event_2_id], 1)
-        self.assertEqual(event_3["total"][event_3_id], 2)
+        self.assertEqual(event_1["total"], 2)
+        self.assertEqual(event_2["total"], 1)
+        self.assertEqual(event_3["total"], 2)
         # Event property totals
-        self.assertEqual(event_1["total"][property_1_id], 1)
-        self.assertEqual(event_2["total"][property_1_id], 1)
-        self.assertEqual(event_3["total"][property_1_id], 1)
-        self.assertEqual(event_1["total"][property_2_id], 1)
-        self.assertEqual(event_2["total"][property_2_id], 1)
-        self.assertEqual(event_3["total"][property_2_id], 1)
-        self.assertEqual(event_1["total"][property_3_id], 1)
-        self.assertEqual(event_2["total"][property_3_id], 1)
-        self.assertEqual(event_3["total"][property_3_id], 1)
+        self.assertEqual(event_1_property_1["totals"][property_1_id], 1)
+        self.assertEqual(event_2_property_1["totals"][property_1_id], 1)
+        self.assertEqual(event_3_property_1["totals"][property_1_id], 1)
+        self.assertEqual(event_1_property_2["totals"][property_2_id], 1)
+        self.assertEqual(event_2_property_2["totals"][property_2_id], 1)
+        self.assertEqual(event_3_property_2["totals"][property_2_id], 1)
+        self.assertEqual(event_1_property_3["totals"][property_3_id], 1)
+        self.assertEqual(event_2_property_3["totals"][property_3_id], 1)
+        self.assertEqual(event_3_property_3["totals"][property_3_id], 1)
         # Property event totals
         self.assertEqual(property_1["values"][property_1_id]["total"][event_1_id], 1)
         self.assertEqual(property_1["values"][property_1_id]["total"][event_2_id], 1)
@@ -187,16 +207,16 @@ class BatchTestCase(unittest.TestCase):
         # Event paths
         self.assertEqual(len(event_1["path"]), 0)
         # Event paths
-        self.assertEqual(event_2["path"][event_2_id][event_1_id], 1)
-        self.assertEqual(event_2["path"][property_1_id][event_1_id], 1)
-        self.assertEqual(event_2["path"][property_2_id][event_1_id], 1)
-        self.assertEqual(event_2["path"][property_3_id][event_1_id], 1)
+        self.assertEqual(event_2["path"][event_1_id], 1)
+        self.assertEqual(event_2_property_1["paths"][property_1_id][event_1_id], 1)
+        self.assertEqual(event_2_property_2["paths"][property_2_id][event_1_id], 1)
+        self.assertEqual(event_2_property_3["paths"][property_3_id][event_1_id], 1)
         # Event paths
-        self.assertEqual(event_3["path"][event_3_id][event_1_id], 2)
-        self.assertEqual(event_3["path"][property_1_id][event_1_id], 1)
-        self.assertEqual(event_3["path"][property_2_id][event_1_id], 1)
-        self.assertEqual(event_3["path"][property_3_id][event_1_id], 1)
-        self.assertEqual(event_3["path"][event_3_id][event_2_id], 1)
-        self.assertEqual(event_3["path"][property_1_id][event_2_id], 1)
-        self.assertEqual(event_3["path"][property_2_id][event_2_id], 1)
-        self.assertEqual(event_3["path"][property_3_id][event_2_id], 1)
+        self.assertEqual(event_3["path"][event_1_id], 2)
+        self.assertEqual(event_3_property_1["paths"][property_1_id][event_1_id], 1)
+        self.assertEqual(event_3_property_2["paths"][property_2_id][event_1_id], 1)
+        self.assertEqual(event_3_property_3["paths"][property_3_id][event_1_id], 1)
+        self.assertEqual(event_3["path"][event_2_id], 1)
+        self.assertEqual(event_3_property_1["paths"][property_1_id][event_2_id], 1)
+        self.assertEqual(event_3_property_2["paths"][property_2_id][event_2_id], 1)
+        self.assertEqual(event_3_property_3["paths"][property_3_id][event_2_id], 1)

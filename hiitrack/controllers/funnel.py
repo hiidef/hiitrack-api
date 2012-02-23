@@ -6,16 +6,26 @@ Funnels are a collection of events within a bucket.
 """
 
 from itertools import chain
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 from telephus.cassandra.c08.ttypes import NotFoundException
 from ..models import bucket_check, user_authorize
-from ..models import FunnelModel, EventModel
+from ..models import FunnelModel, EventModel, PropertyModel
 from ..lib.authentication import authenticate
 from ..exceptions import MissingParameterException
 from ..lib.b64encode import uri_b64decode, uri_b64encode, \
-    b64encode_nested_keys, b64encode_double_nested_keys
+    b64encode_nested_keys, b64encode_double_nested_keys, b64encode_keys
 from ..lib.parameters import require
 from ..lib.profiler import profile
+
+
+def _parse(data, event_ids):
+    """Zip responses by data[offset::step]"""
+    data = [x[1] for x in data]
+    return (
+        dict(zip(event_ids, data[0::4])),
+        dict(zip(event_ids, data[1::4])),
+        dict(zip(event_ids, data[2::4])),
+        dict(zip(event_ids, data[3::4])))
 
 
 def encode_nested_lists(dictionary):
@@ -73,8 +83,12 @@ class Funnel(object):
                 "at least two values.")
         event_ids = [uri_b64decode(x) for x in request.args["event_id"]]
         description = request.args["description"][0]
+        if "property" in request.args:
+            property_name = request.args["property"][0]
+        else:
+            property_name = None
         funnel = FunnelModel(user_name, bucket_name, funnel_name)
-        yield funnel.create(description, event_ids)
+        yield funnel.create(description, event_ids, property_name)
         request.setResponseCode(201)
 
     @authenticate
@@ -83,14 +97,24 @@ class Funnel(object):
     @profile
     @inlineCallbacks
     def preview_funnel(self, request, user_name, bucket_name):
+        """
+        Information about an unsaved funnel.
+        """
         if len(request.args["event_id"]) < 2:
             request.setResponseCode(403)
             raise MissingParameterException("Parameter 'event_id' requires "
                 "at least two values.")
         event_ids = [uri_b64decode(x) for x in request.args["event_id"]]
-        data = yield self._get(user_name, bucket_name, event_ids)
+        if "property" in request.args:
+            _property = PropertyModel(
+                user_name,
+                bucket_name,
+                property_name=request.args["property"][0])
+        else:
+            _property = None
+        data = yield _get(user_name, bucket_name, event_ids, _property)
         returnValue(data)
-        
+
     @authenticate
     @user_authorize
     @bucket_check
@@ -98,76 +122,17 @@ class Funnel(object):
     @inlineCallbacks
     def get_saved_funnel(self, request, user_name, bucket_name, funnel_name):
         """
-        Get funnel details.
+        Information about a saved funnel.
         """
         funnel = FunnelModel(user_name, bucket_name, funnel_name)
         try:
-            description, event_ids = yield funnel.get_description_event_ids()
+            yield funnel.get()
         except NotFoundException:
             request.setResponseCode(404)
             raise
-        data = yield self._get(user_name, bucket_name, event_ids)
-        data["description"] = description
+        data = yield _get(user_name, bucket_name, funnel.event_ids, funnel.property)
+        data["description"] = funnel.description
         returnValue(data)
-
-    @inlineCallbacks
-    def _get(self, user_name, bucket_name, event_ids):
-        totals = {}
-        unique_totals = {}
-        paths = {}
-        unique_paths = {}
-        for event_id in event_ids:
-            event = EventModel(user_name, bucket_name, event_id=event_id)
-            total = yield event.get_total()
-            totals[event.id] = total
-            unique_totals[event.id] = yield event.get_unique_total()
-            paths[event.id] = yield event.get_path()
-            unique_paths[event.id] = yield event.get_unique_path()
-        property_ids = chain(*[x.keys() for x in totals.values()])
-        property_ids = set(property_ids) - set(event_ids)
-        # Full funnel, no properties.
-        event_id = event_ids[0]
-        base_funnel = [(event_id, totals[event_id][event_id])]
-        base_unique_funnel = [(event_id, unique_totals[event_id][event_id])]
-        for i in range(1, len(event_ids)):
-            event_id = event_ids[i - 1]
-            new_event_id = event_ids[i]
-            base_funnel.append((
-                new_event_id,
-                paths[new_event_id][new_event_id][event_id]))
-            base_unique_funnel.append((
-                new_event_id,
-                unique_paths[new_event_id][new_event_id][event_id]))
-        funnels = {}
-        unique_funnels = {}
-        for property_id in property_ids:
-            event_id = event_ids[0]
-            _funnel = [(event_id, totals[event_id][property_id])]
-            unique_funnel = [(event_id, unique_totals[event_id][property_id])]
-            for i in range(1, len(event_ids)):
-                event_id = event_ids[i - 1]
-                new_event_id = event_ids[i]
-                if event_id not in paths[new_event_id][property_id]:
-                    continue
-                _funnel.append((
-                    new_event_id,
-                    paths[new_event_id][property_id][event_id]))
-                unique_funnel.append((
-                    new_event_id,
-                    unique_paths[new_event_id][property_id][event_id]))
-            funnels[property_id] = _funnel
-            unique_funnels[property_id] = unique_funnel
-        returnValue({
-            "event_ids": [uri_b64encode(x) for x in event_ids],
-            "totals": b64encode_nested_keys(totals),
-            "unique_totals": b64encode_nested_keys(unique_totals),
-            "paths": b64encode_double_nested_keys(paths),
-            "unique_paths": b64encode_double_nested_keys(unique_paths),
-            "funnel": [(uri_b64encode(x[0]), x[1]) for x in base_funnel],
-            "unique_funnel": [(uri_b64encode(x[0]), x[1]) \
-                for x in base_unique_funnel],
-            "funnels": encode_nested_lists(funnels),
-            "unique_funnels": encode_nested_lists(unique_funnels)})
 
     @authenticate
     @user_authorize
@@ -180,3 +145,98 @@ class Funnel(object):
         """
         funnel = FunnelModel(user_name, bucket_name, funnel_name)
         yield funnel.delete()
+
+
+@inlineCallbacks
+def _get(user_name, bucket_name, event_ids, _property):
+    """
+    Information about a funnel.
+    """
+    # Combine requests for event data.
+    deferreds = []
+    for event_id in event_ids:
+        event = EventModel(user_name, bucket_name, event_id=event_id)
+        deferreds.extend([
+            event.get_total(_property),
+            event.get_unique_total(_property),
+            event.get_path(_property),
+            event.get_unique_path(_property)])
+    if _property:
+        deferreds.append(_property.get_values())
+    data = yield DeferredList(deferreds)
+    response = {"event_ids": [uri_b64encode(x) for x in event_ids]}
+    if _property:
+        property_values = data.pop()[1]
+        response.update({
+            "property":{
+                "name":_property.property_name,
+                "id": uri_b64encode(_property.id),
+                "values": b64encode_keys(property_values)}})
+        _get_with_property(data, event_ids, response)
+    else:
+        _get_without_property(data, event_ids, response)
+    returnValue(response)
+
+
+def _get_with_property(data, event_ids, response):
+    """
+    Information about a funnel on a property.
+    """
+    totals, unique_totals, paths, unique_paths = _parse(data, event_ids)
+    property_ids = set(chain(*[x.keys() for x in totals.values()]))
+    funnels = {}
+    unique_funnels = {}
+    for property_id in property_ids - set(event_ids):
+        event_id = event_ids[0]
+        _funnel = [(event_id, totals[event_id][property_id])]
+        unique_funnel = [(event_id, unique_totals[event_id][property_id])]
+        for i in range(1, len(event_ids)):
+            event_id = event_ids[i - 1]
+            new_event_id = event_ids[i]
+            if event_id not in paths[new_event_id][property_id]:
+                continue
+            _funnel.append((
+                new_event_id,
+                paths[new_event_id][property_id][event_id]))
+            unique_funnel.append((
+                new_event_id,
+                unique_paths[new_event_id][property_id][event_id]))
+        funnels[property_id] = _funnel
+        unique_funnels[property_id] = unique_funnel
+    response.update({
+        "totals": b64encode_nested_keys(totals),
+        "unique_totals": b64encode_nested_keys(unique_totals),
+        "paths": b64encode_double_nested_keys(paths),
+        "unique_paths": b64encode_double_nested_keys(unique_paths),
+        "funnels": encode_nested_lists(funnels),
+        "unique_funnels": encode_nested_lists(unique_funnels)})
+
+
+def _get_without_property(data, event_ids, response):
+    """
+    Information about a funnel without a property.
+    """
+    totals, unique_totals, paths, unique_paths = _parse(data, event_ids)
+    # Full funnel, no properties.
+    event_id = event_ids[0]
+    totals = dict([(x, totals[x][x]) for x in totals])
+    unique_totals = dict([(x, unique_totals[x][x]) for x in unique_totals])
+    _funnel = [(event_id, totals[event_id])]
+    unique_funnel = [(event_id, unique_totals[event_id])]
+    paths = dict([(x, paths[x][x]) for x in paths])
+    unique_paths = dict([(x, unique_paths[x][x]) for x in unique_paths])
+    for i in range(1, len(event_ids)):
+        event_id = event_ids[i - 1]
+        new_event_id = event_ids[i]
+        _funnel.append((new_event_id, paths[new_event_id][event_id]))
+        unique_funnel.append((
+            new_event_id,
+            unique_paths[new_event_id][event_id]))
+    response.update({
+        "total": b64encode_keys(totals),
+        "unique_total": b64encode_keys(unique_totals),
+        "path": b64encode_nested_keys(paths),
+        "unique_path": b64encode_nested_keys(unique_paths),
+        "funnel": [(uri_b64encode(x[0]), x[1]) for x in _funnel],
+        "unique_funnel": [(uri_b64encode(x[0]), x[1]) \
+            for x in unique_funnel]})

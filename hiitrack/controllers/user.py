@@ -9,18 +9,9 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from ..lib.authentication import authenticate
 from ..lib.parameters import require
 from ..exceptions import UserException
-from ..models import UserModel, user_authorize, BucketModel
-from ..lib.b64encode import uri_b64encode, b64encode_values, \
-    b64encode_nested_values
+from ..models import UserModel, user_authorize
 from ..lib.profiler import profile
 
-@profile
-def get_user(user_name):
-    """
-    Returns basic user information.
-    """
-    user = UserModel(user_name)
-    returnValue({})
 
 class User(object):
     """
@@ -67,19 +58,16 @@ class User(object):
         else:
             yield user.create(request.args["password"][0])
         request.setResponseCode(201)
-        response = yield get_user(user_name)
-        returnValue(response)
+        returnValue({})
 
     @authenticate
     @user_authorize
     @profile
-    @inlineCallbacks
     def get(self, request, user_name):
         """
         Information about the user.
         """
-        response = yield get_user(user_name)
-        returnValue(response)
+        return {}
 
     @authenticate
     @user_authorize

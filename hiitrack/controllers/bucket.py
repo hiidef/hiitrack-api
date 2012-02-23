@@ -6,9 +6,9 @@ Buckets are a collection of events, properties, and funnels belonging to a
 user.
 """
 
-from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
+from twisted.internet.defer import inlineCallbacks, returnValue
 from ..lib.authentication import authenticate
-from ..exceptions import BucketException, MissingParameterException
+from ..exceptions import BucketException
 from ..models import bucket_check, BucketModel, user_authorize, EventModel, \
     PropertyValueModel, VisitorModel, bucket_create
 from ..lib.b64encode import b64encode_keys, uri_b64encode
@@ -21,20 +21,14 @@ from uuid import uuid4
 from datetime import datetime, timedelta
 
 
-def encode(value):
-    """
-    Confirms string, encodes as utf-8
-    """
-    if not value or not isinstance(value, basestring):
-        raise MissingParameterException("Parameter must be string or unicode")
-    return value.encode("utf-8")
-
-
 def set_cookie(request, visitor_id):
+    """
+    Sets a visitor cookie.
+    """
     expiration = datetime.now() + timedelta(days=100*365)
     request.addCookie(
-        "v", 
-        visitor_id,           
+        "v",
+        visitor_id,
         path="/",
         expires=expiration.strftime("%a, %d-%b-%Y %H:%M:%S PST"))
 
@@ -100,7 +94,7 @@ class Bucket(object):
         description = yield bucket.get_description()
         properties = yield bucket.get_properties()
         events = yield bucket.get_events()
-        for key, value in events.items():
+        for value in events.values():
             value["id"] = uri_b64encode(value["id"])
         returnValue({
             "bucket_name": bucket_name,
@@ -139,35 +133,34 @@ class Bucket(object):
                 visitor_id = uuid4().hex
                 set_cookie(request, visitor_id)
         data = ujson.loads(b64decode(request.args["message"][0]))
-        if len(data) != 2:   
+        if len(data) != 2:
             returnValue({
-                "visitor_id":visitor_id,
+                "visitor_id": visitor_id,
                 "error": "Batch request must contain base64 encoded list"
                     " of two values: event_names, properties"})
         event_names, properties = data
         if not isinstance(event_names, list):
             returnValue({
-                "visitor_id":visitor_id,
-                "error": "event_names must be a list."})        
+                "visitor_id": visitor_id,
+                "error": "event_names must be a list."})
         if not isinstance(properties, list):
             returnValue({
-                "visitor_id":visitor_id,
-                "error": "properties must be a list of tuples."})    
+                "visitor_id": visitor_id,
+                "error": "properties must be a list of tuples."})
         if not all([len(x) == 2 for x in properties]):
             returnValue({
-                "visitor_id":visitor_id,
+                "visitor_id": visitor_id,
                 "error": "properties must be in [key, value] format."})
         try:
-            event_names = [encode(x) for x in event_names]
-            properties = [(encode(x[0]), x[1]) for x in properties]
-        except Exception, e:
+            event_names = [x.encode("utf-8") for x in event_names]
+            properties = [(x[0].encode("utf-8"), x[1]) for x in properties]
+        except AttributeError:
             returnValue({
-                "visitor_id":visitor_id,
+                "visitor_id": visitor_id,
                 "error": "Batch request must contain base64 encoded list"
                     " of two values: event_names, properties"})
         visitor = VisitorModel(user_name, bucket_name, visitor_id)
         total, path, property_ids = yield visitor.get_metadata()
-        deferreds = []
         for key, value in properties:
             pv = PropertyValueModel(user_name, bucket_name, key, value)
             pv.batch_add(visitor, total, path, property_ids)

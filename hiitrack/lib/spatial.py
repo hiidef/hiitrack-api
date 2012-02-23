@@ -20,7 +20,7 @@ def spatial_hash(coordinates, boundaries, precision=12):
             boundaries[dimension][0] = mid
         else:
             boundaries[dimension][1] = mid
-        if bit < 7: 
+        if bit < 7:
             bit += 1
         else:
             spatialhash += chr(character_code)

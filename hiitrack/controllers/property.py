@@ -11,8 +11,7 @@ import ujson
 from ..models import bucket_check, user_authorize, bucket_create
 from ..models import PropertyValueModel, VisitorModel, PropertyModel
 from ..lib.authentication import authenticate
-from ..lib.b64encode import b64encode_keys, uri_b64encode, b64encode_nested_keys, \
-    uri_b64decode
+from ..lib.b64encode import b64encode_keys, uri_b64encode, uri_b64decode
 from ..lib.parameters import require
 from ..lib.profiler import profile
 
@@ -56,7 +55,7 @@ class Property(object):
         Information about the property.
         """
         _property = PropertyModel(user_name, bucket_name, property_name)
-        return self._get(_property, property_name)
+        return _get(_property, property_name)
 
     @authenticate
     @user_authorize
@@ -74,24 +73,8 @@ class Property(object):
         property_id = uri_b64decode(property_id)
         _property = PropertyModel(user_name, bucket_name, property_id=property_id)
         property_name = yield _property.get_name()
-        data = yield self._get(_property, property_name)
+        data = yield _get(_property, property_name)
         returnValue(data)
-
-    @inlineCallbacks
-    def _get(self, _property, property_name):
-        """
-        Information about the property.
-        """
-        values = yield _property.get_values()
-        totals = yield _property.get_totals()
-        values = dict([(
-            uri_b64encode(x), 
-            {"value": values[x], "total": b64encode_keys(totals[x])}) 
-            for x in values])
-        returnValue({
-            "id":uri_b64encode(_property.id),
-            "name":property_name,
-            "values":values})
 
     @require("visitor_id", "value")
     @bucket_create
@@ -117,3 +100,19 @@ class Property(object):
             visitor_id)
         yield property_value.add(visitor)
 
+
+@inlineCallbacks
+def _get(_property, property_name):
+    """
+    Information about the property.
+    """
+    values = yield _property.get_values()
+    totals = yield _property.get_totals()
+    values = dict([(
+        uri_b64encode(x),
+        {"value": values[x], "total": b64encode_keys(totals[x])})
+        for x in values])
+    returnValue({
+        "id":uri_b64encode(_property.id),
+        "name":property_name,
+        "values":values})

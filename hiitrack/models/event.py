@@ -6,15 +6,27 @@ Events are name/timestamp pairs linked to a visitor and stored in buckets.
 """
 
 from ..lib.hash import pack_hash
-from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
-from ..lib.cassandra import insert_relation_by_id, increment_counter, get_counter, \
-    BUFFER, get_relation, pack_hour, pack_day, pack_timestamp, unpack_timestamp
+from twisted.internet.defer import inlineCallbacks, returnValue
+from ..lib.cassandra import insert_relation_by_id, increment_counter, \
+    get_counter, BUFFER, get_relation, pack_hour, pack_day, pack_timestamp, \
+    unpack_timestamp
 from collections import defaultdict
-from ..lib.b64encode import uri_b64encode
 from ..lib.profiler import profile
 import ujson
 
+
+_16_BYTE_FILLER = chr(0)*16
 _32_BYTE_FILLER = chr(0)*32
+
+
+def sort_nested_dict(d):
+    """
+    Sorts nested dictionary d[x][y] = sorted([])
+    """
+    for x in d:
+        for y in d[x]:
+            d[x][y] = sorted(d[x][y].items(), key=lambda z:z[0])
+    return d
 
 
 class EventModel(object):
@@ -46,26 +58,30 @@ class EventModel(object):
 
     @profile
     @inlineCallbacks
-    def get_properties(self):   
+    def get_properties(self):
+        """
+        Returns dictionary of id:name pairs for properties associated with the
+        event.
+        """
         key = (self.user_name, self.bucket_name, "event", self.shard)
         data = yield get_counter(key, prefix=self.id)
-        property_ids = set([column_id[0:32] for column_id in data])
-        property_ids.remove(_32_BYTE_FILLER)
-        key = (self.user_name, self.bucket_name, "property")
-        column_ids = property_ids
+        property_prefix_ids = set([column_id[0:16] for column_id in data])
+        key = (self.user_name, self.bucket_name, "property_name")
+        column_ids = property_prefix_ids
         data = yield get_relation(key, column_ids=column_ids)
-        result = defaultdict(dict)
-        for column_id in data:
-            name, value = ujson.loads(data[column_id])
-            property_id = column_id[0:32]
-            result[name][property_id] = value
-        returnValue(result)
+        returnValue(dict([(x, ujson.loads(data[x])) for x in data]))
 
     @profile
-    def get_name(self):   
+    @inlineCallbacks
+    def get_name(self):
+        """
+        Gets event name.
+        """
         key = (self.user_name, self.bucket_name, "event")
         column_id = self.id
-        return get_relation(key, column_id=column_id)
+        name = yield get_relation(key, column_id=column_id)
+        self.event_name = name
+        returnValue(name)
 
     @profile
     def increment_total(self, unique, property_id=None, value=1):
@@ -75,11 +91,19 @@ class EventModel(object):
         key = (self.user_name, self.bucket_name, "event", self.shard)
         column_id = "".join([self.id, property_id or _32_BYTE_FILLER])
         increment_counter(key, column_id=column_id, value=value)
-        if unique:        
-            key = (self.user_name, self.bucket_name, "unique_event", self.shard)
+        if unique:
+            key = (
+                self.user_name, 
+                self.bucket_name, 
+                "unique_event", 
+                self.shard)
             increment_counter(key, column_id=column_id)
             if property_id:
-                key = (self.user_name, self.bucket_name, "property", property_id[0])
+                key = (
+                    self.user_name, 
+                    self.bucket_name, 
+                    "property", 
+                    property_id[0])
                 column_id = "".join([property_id, self.id])
                 increment_counter(key, column_id=column_id)
 
@@ -89,10 +113,19 @@ class EventModel(object):
         Increment the total hourly count of event_id.
         """
         key = (self.user_name, self.bucket_name, "hourly_event", self.shard)
-        column_id = "".join([self.id, pack_hour(), property_id or _32_BYTE_FILLER])
+        property_id = property_id or _32_BYTE_FILLER
+        column_id = "".join([
+            self.id,
+            property_id[0:16],
+            pack_hour(),
+            property_id[16:32]])
         increment_counter(key, column_id=column_id, value=value)
         if unique:
-            key = (self.user_name, self.bucket_name, "hourly_unique_event", self.shard)
+            key = (
+                self.user_name, 
+                self.bucket_name, 
+                "hourly_unique_event", 
+                self.shard)
             increment_counter(key, column_id=column_id)
 
     @profile
@@ -101,110 +134,154 @@ class EventModel(object):
         Increment the total daily count of event_id.
         """
         key = (self.user_name, self.bucket_name, "daily_event", self.shard)
-        column_id = "".join([self.id, pack_day(), property_id or _32_BYTE_FILLER])
+        property_id = property_id or _32_BYTE_FILLER
+        column_id = "".join([
+            self.id,
+            property_id[0:16],
+            pack_day(),
+            property_id[16:32]])
         increment_counter(key, column_id=column_id, value=value)
         if unique:
-            key = (self.user_name, self.bucket_name, "daily_unique_event", self.shard)
+            key = (
+                self.user_name, 
+                self.bucket_name, 
+                "daily_unique_event", 
+                self.shard)
             increment_counter(key, column_id=column_id)
 
     @profile
-    def get_total(self):
+    def get_total(self, _property=None):
         """
         Get the count of event_id.
         """
-        return self._get_total("event")
- 
+        return self._get_total("event", _property)
+
     @profile
-    def get_unique_total(self):
+    def get_unique_total(self, _property=None):
         """
         Get the unique count of event_id.
         """
-        return self._get_total("unique_event")
+        return self._get_total("unique_event", _property)
 
     @inlineCallbacks
-    def _get_total(self, hash_value):
+    def _get_total(self, hash_value, _property):
         """
         Get the count of event_id.
         """
         key = (self.user_name, self.bucket_name, hash_value, self.shard)
-        data = yield get_counter(key, prefix=self.id)
+        if _property:
+            property_prefix_id = _property.id
+        else:
+            property_prefix_id = _16_BYTE_FILLER
+        prefix = self.id + property_prefix_id
+        data = yield get_counter(key, prefix=prefix)
         result = defaultdict(lambda:defaultdict(lambda:0))
         for column_id in data:
-            property_id = column_id[0:32]
+            property_id = property_prefix_id + column_id[0:16]
             if property_id == _32_BYTE_FILLER:
                 property_id = self.id
             result[property_id] = data[column_id]
         returnValue(result)
 
     @profile
-    def get_hourly_total(self, start, finish):
+    def get_timed_total(self, start, finish, interval="day", _property=None):
         """
-        Get the hourly count of event_id.
+        Get the timed counts.
         """
-        return self._get_timed_total(start, finish, "hourly_event")
+        if interval == "day":
+            hash_value = "daily_event"
+        elif interval == "hour":
+            hash_value = "hourly_event"
+        return self._get_timed_total(start, finish, hash_value, _property)
 
     @profile
-    def get_hourly_unique_total(self, start, finish):
+    def get_timed_unique_total(
+            self, 
+            start, 
+            finish, 
+            interval="day", 
+            _property=None):
         """
-        Get the hourly unique count of event_id.
+        Get the timed unique counts.
         """
-        return self._get_timed_total(start, finish, "hourly_unique_event")
-    
-    @profile
-    def get_daily_total(self, start, finish):
-        """
-        Get the daily count of event_id.
-        """
-        return self._get_timed_total(start, finish, "daily_event")
-
-    @profile
-    def get_daily_unique_total(self, start, finish):
-        """
-        Get the daily unique count of event_id.
-        """
-        return self._get_timed_total(start, finish, "daily_unique_event")
+        if interval == "day":
+            hash_value = "daily_unique_event"
+        elif interval == "hour":
+            hash_value = "hourly_unique_event"
+        return self._get_timed_total(start, finish, hash_value, _property)
 
     @inlineCallbacks
-    def _get_timed_total(self, start, finish, hash_value):
+    def _get_timed_total(self, start, finish, hash_value, _property):
+        """
+        Get the regular or unique timed counts.
+        """
         start = pack_timestamp(start)
         finish = pack_timestamp(finish)
         key = (self.user_name, self.bucket_name, hash_value, self.shard)
-        data = yield get_counter(key, prefix=self.id, start=start, finish=finish)
+        if _property:
+            property_prefix_id = _property.id
+        else:
+            property_prefix_id = _16_BYTE_FILLER
+        prefix = self.id + property_prefix_id
+        data = yield get_counter(key, prefix=prefix, start=start, finish=finish)
         result = defaultdict(list)
         for column_id in data:
             timestamp = unpack_timestamp(column_id[0:4])
-            property_id = column_id[4:36]
+            property_id = property_prefix_id + column_id[4:20]
             if property_id == _32_BYTE_FILLER:
                 property_id = self.id
             result[property_id].append((timestamp, data[column_id]))
         for property_id in result:
             result[property_id] = sorted(result[property_id], key=lambda x:x[0])
         returnValue(result)
- 
+
     @profile
-    def increment_hourly_path(self, event_id, unique, property_id=None, value=1):
+    def increment_hourly_path(
+            self, 
+            event_id, 
+            unique, 
+            property_id=None, 
+            value=1):
+        """
+        Increments the path by hour.
+        """
         key = (self.user_name, self.bucket_name, "hourly_path", self.shard)
+        property_id = property_id or _32_BYTE_FILLER
         column_id = "".join([
             self.id,
+            property_id[0:16],
             pack_hour(),
-            property_id or _32_BYTE_FILLER,
+            property_id[16:32],
             event_id])
         increment_counter(key, column_id=column_id, value=value)
         if unique:
-            key = (self.user_name, self.bucket_name, "hourly_unique_path", self.shard)
+            key = (
+                self.user_name, 
+                self.bucket_name, 
+                "hourly_unique_path", 
+                self.shard)
             increment_counter(key, column_id=column_id)
 
     @profile
     def increment_daily_path(self, event_id, unique, property_id=None, value=1):
+        """
+        Increments the path by day.
+        """
         key = (self.user_name, self.bucket_name, "daily_path", self.shard)
+        property_id = property_id or _32_BYTE_FILLER
         column_id = "".join([
             self.id,
+            property_id[0:16],
             pack_day(),
-            property_id or _32_BYTE_FILLER,
+            property_id[16:32],
             event_id])
         increment_counter(key, column_id=column_id, value=value)
         if unique:
-            key = (self.user_name, self.bucket_name, "daily_unique_path", self.shard)
+            key = (
+                self.user_name, 
+                self.bucket_name, 
+                "daily_unique_path", 
+                self.shard)
             increment_counter(key, column_id=column_id)
 
     @profile
@@ -221,80 +298,96 @@ class EventModel(object):
         if unique:
             key = (self.user_name, self.bucket_name, "unique_path", self.shard)
             increment_counter(key, column_id=column_id)
-        
+
     @profile
-    def get_path(self):
+    def get_path(self, _property=None):
         """
         Get the path of events.
         """
-        return self._get_path("path")
-      
+        return self._get_path("path", _property)
+
     @profile
-    def get_unique_path(self):
+    def get_unique_path(self, _property=None):
         """
         Get the unique path of visitor events.
         """
-        return self._get_path("unique_path")
-  
+        return self._get_path("unique_path", _property)
+
     @inlineCallbacks
-    def _get_path(self, hash_value):    
+    def _get_path(self, hash_value, _property):
+        """
+        Get the regular or unique path of visitor events.
+        """
         key = (self.user_name, self.bucket_name, hash_value, self.shard)
-        prefix = self.id
+        if _property:
+            property_prefix_id = _property.id
+        else:
+            property_prefix_id = _16_BYTE_FILLER
+        prefix = self.id + property_prefix_id
         data = yield get_counter(key, prefix=prefix)
         result = defaultdict(lambda:defaultdict(lambda:0))
         for column_id in data:
-            property_id = column_id[0:32]
-            event_id = column_id[32:]
+            property_id = property_prefix_id + column_id[0:16]
+            event_id = column_id[16:32]
             if property_id == _32_BYTE_FILLER:
                 property_id = self.id
             result[property_id][event_id] = data[column_id]
         returnValue(result)
-    
-    @profile
-    def get_hourly_path(self, start, finish):
-        """
-        Get the hourly path of events.
-        """
-        return self._get_timed_path(start, finish, "hourly_path")
 
     @profile
-    def get_daily_path(self, start, finish):
+    def get_timed_path(self, start, finish, interval="day", _property=None):
         """
         Get the hourly path of events.
         """
-        return self._get_timed_path(start, finish, "daily_path")
+        if interval == "day":
+            hash_value = "daily_path"
+        elif interval == "hour":
+            hash_value = "hourly_path"
+        return self._get_timed_path(start, finish, hash_value, _property)
 
     @profile
-    def get_hourly_unique_path(self, start, finish):
+    def get_timed_unique_path(
+            self, 
+            start, 
+            finish, 
+            interval="day", 
+            _property=None):
         """
         Get the hourly path of events.
         """
-        return self._get_timed_path(start, finish, "hourly_unique_path")
-
-    @profile
-    def get_daily_unique_path(self, start, finish):
-        """
-        Get the hourly path of events.
-        """
-        return self._get_timed_path(start, finish, "daily_unique_path")
+        if interval == "day":
+            hash_value = "daily_unique_path"
+        elif interval == "hour":
+            hash_value = "hourly_unique_path"
+        return self._get_timed_path(start, finish, hash_value, _property)
 
     @inlineCallbacks
-    def _get_timed_path(self, start, finish, hash_value):  
+    def _get_timed_path(self, start, finish, hash_value, _property):
+        """
+        Get the regular or unique path of timed visitor events.
+        """
         key = (self.user_name, self.bucket_name, hash_value, self.shard)
-        prefix = self.id
-        data = yield get_counter(key, prefix=prefix)
+        if _property:
+            property_prefix_id = _property.id
+        else:
+            property_prefix_id = _16_BYTE_FILLER
+        start = pack_timestamp(start)
+        finish = pack_timestamp(finish)
+        prefix = self.id + property_prefix_id
+        data = yield get_counter(
+            key, 
+            prefix=prefix, 
+            start=start, 
+            finish=finish)
         result = defaultdict(lambda:defaultdict(lambda:defaultdict(lambda:0)))
         for column_id in data:
+            property_id = property_prefix_id + column_id[4:20]
             timestamp = unpack_timestamp(column_id[0:4])
-            property_id = column_id[4:36]
-            event_id = column_id[36:]
+            event_id = column_id[20:36]
             if property_id == _32_BYTE_FILLER:
                 property_id = self.id
             result[property_id][event_id][timestamp] += data[column_id]
-        for property_id in result:
-            for event_id in result[property_id]:
-                result[property_id][event_id] = sorted(result[property_id][event_id].items(), key=lambda x:x[0])
-        returnValue(result)
+        returnValue(sort_nested_dict(result))
 
     @profile
     def batch_add(self, visitor, total, path, property_ids):
@@ -302,7 +395,7 @@ class EventModel(object):
         Add the event to the visitor, increment global counters, and return
         a list of deferreds.
         """
-        unique = self.id not in total 
+        unique = self.id not in total
         self.create()
         self.increment_total(unique)
         self.increment_hourly_total(unique)
@@ -325,12 +418,12 @@ class EventModel(object):
             path[event_id][self.id] += 1 # Update the visitor path for batch
         total[self.id] += 1 # Update the visitor total for batch
 
-    @profile 
+    @profile
     @inlineCallbacks
     def add(self, visitor):
         """
         Add the event to the visitor and increment global counters.
         """
-        total, path, property_ids = yield visitor.get_metadata() 
+        total, path, property_ids = yield visitor.get_metadata()
         self.batch_add(visitor, total, path, property_ids)
         yield BUFFER.flush()

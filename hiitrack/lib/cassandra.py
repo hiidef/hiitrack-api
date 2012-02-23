@@ -6,8 +6,7 @@ Cassandra methods for dealing with hashed keys.
 """
 
 from ..lib.hash import pack_hash
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, \
-    DeferredList
+from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList
 import struct
 import time
 try:
@@ -22,39 +21,50 @@ CLIENT = None
 LOW_ID = chr(255) * 16
 HIGH_ID = chr(255) * 16
 
-class Batched(object):
 
-    def __init__(self):
-        self.relation = {}
-
-    def get_relation(self, key, column_id):
-        pass
-
-    def flush(self):
-        pass
+def _counter_buffer():
+    return defaultdict(lambda:defaultdict(lambda:0))
 
 
 class Buffer(object):
+    """
+    Buffer to batch inserts and adds.
+    """
 
     def __init__(self):
         self.relation = defaultdict(dict)
-        self.counter = defaultdict(lambda:defaultdict(lambda:0))
+        self.counter = _counter_buffer()
 
     def flush_relation(self):
+        """
+        Batch insert buffered relations.
+        """
         relation, self.relation = self.relation, defaultdict(dict)
         return CLIENT.batch_multikey_insert("relation", relation)
 
     def flush_counter(self):
-        counter, self.counter = self.counter, defaultdict(lambda:defaultdict(lambda:0))
+        """
+        Batch add buffered counters.
+        """
+        counter, self.counter = self.counter, _counter_buffer()
         return CLIENT.batch_multikey_add("counter", counter)
 
     def insert_relation(self, key, column_id, value):
+        """
+        Add a relation insert to the buffer.
+        """
         self.relation[key][column_id] = value
 
-    def increment_counter(self, key, column_id, value):    
+    def increment_counter(self, key, column_id, value):
+        """
+        Add a counter add to the buffer.
+        """
         self.counter[key][column_id] += value
 
     def flush(self):
+        """
+        Batch add and insert simultaneously.
+        """
         return DeferredList([self.flush_relation(), self.flush_counter()])
 
 
@@ -88,6 +98,9 @@ def pack_timestamp(timestamp=None):
 
 
 def unpack_timestamp(timestamp):
+    """
+    Return a integer representing a timestamp.
+    """
     return struct.unpack(">1i", timestamp)[0]
 
 
@@ -114,8 +127,9 @@ def counter_cols_to_dict(columns, prefix=None):
         return defaultdict(lambda:0, [
             (x.counter_column.name[prefix_length:], x.counter_column.value)
                 for x in columns])
-    return defaultdict(lambda:0, [(x.counter_column.name, x.counter_column.value)
-            for x in columns])
+    return defaultdict(lambda:0, [
+            (x.counter_column.name, x.counter_column.value)
+                for x in columns])
 
 
 @profile
@@ -191,7 +205,7 @@ def get_relation(
             names=column_ids,
             consistency=consistency,
             count=count)
-        returnValue(cols_to_dict(result))        
+        returnValue(cols_to_dict(result))
     else:
         if prefix:
             start = prefix
@@ -208,7 +222,6 @@ def get_relation(
             count=count)
         returnValue(cols_to_dict(result, prefix=prefix))
 
-
 @profile
 def insert_relation(key, column, value, commit=False):
     """
@@ -218,7 +231,6 @@ def insert_relation(key, column, value, commit=False):
     key = pack_hash(key)
     column_id = pack_hash(column)
     return _insert_relation(key, column_id, value, commit)
-
 
 @profile
 def insert_relation_by_id(key, column_id, value, commit=False):
@@ -230,6 +242,9 @@ def insert_relation_by_id(key, column_id, value, commit=False):
 
 
 def _insert_relation(key, column_id, value, commit):
+    """
+    Insert a column into the relation column family.
+    """
     BUFFER.insert_relation(key, column_id, value)
     if commit:
         return BUFFER.flush_relation()
@@ -238,7 +253,7 @@ def _insert_relation(key, column_id, value, commit):
 @profile
 def delete_relation(key, column=None, column_id=None, consistency=None):
     """
-    Delete a row or column from the relation CF.
+    Delete a row or column from the relation column family.
     """
     key = pack_hash(key)
     if column_id:
@@ -262,6 +277,9 @@ def delete_relation(key, column=None, column_id=None, consistency=None):
 
 @profile
 def delete_relations(keys, consistency=None):
+    """
+    Delete several relations from the relation column family.
+    """
     keys = [pack_hash(key) for key in keys]
     return CLIENT.batch_remove_rows({"relation":keys}, consistency=consistency)
 
@@ -289,6 +307,9 @@ def get_counter(key, consistency=None, prefix=None, start='', finish=''):
 @profile
 @inlineCallbacks
 def get_counters(keys, consistency=None, prefix=None):
+    """
+    Get counters from several rows at once.
+    """
     keys = [pack_hash(key) for key in keys]
     if prefix:
         start = prefix
@@ -303,7 +324,7 @@ def get_counters(keys, consistency=None, prefix=None):
         start=start,
         finish=finish,
         count=10000)
-    returnValue([counter_cols_to_dict(data[key], prefix=prefix) for key in keys])
+    returnValue([counter_cols_to_dict(data[x], prefix=prefix) for x in keys])
 
 
 @profile
@@ -349,5 +370,8 @@ def delete_counter(key, column=None, column_id=None, consistency=None):
 
 @profile
 def delete_counters(keys, consistency=None):
+    """
+    Delete several counters from the counter column family.
+    """
     keys = [pack_hash(key) for key in keys]
     return CLIENT.batch_remove_rows({"counter":keys}, consistency=consistency)

@@ -9,7 +9,7 @@ import base64
 from telephus.cassandra.c08.ttypes import NotFoundException
 from twisted.internet.defer import inlineCallbacks, returnValue
 from ..exceptions import HTTPAuthenticationRequired
-from ..models import UserModel
+from ..models import UserModel, BucketModel
 from ..lib.ttldict import TTLDict
 
 TTL_CACHE = TTLDict(ttl=30)
@@ -40,26 +40,24 @@ def authenticate(method):
             user = UserModel(user_name)
             try:
                 assert TTL_CACHE[user_name] == password
-            except KeyError:
+            except (AssertionError, KeyError):
                 pass
             valid = yield user.validate_password(password)
-            assert valid
-            TTL_CACHE[user_name] = password
-            #try:
-            #    assert valid
-            #    TTL_CACHE[user_name] = password
-            #except:
-            #    if "bucket_name" in kwargs:
-            #        bucket = BucketModel(user_name, kwargs["bucket_name"][0])
-            #        valid = yield bucket.validate_password(password)
-            #        assert valid
-        except (AssertionError, NotFoundException):
+            try:
+                assert valid
+                TTL_CACHE[user_name] = password
+            except AssertionError:
+                if "bucket_name" in kwargs:
+                    bucket = BucketModel(user_name, kwargs["bucket_name"])
+                    valid = yield bucket.validate_password(password)
+                    assert valid
+                raise
+        except AssertionError:
             request.setResponseCode(401)
             if request.getHeader("X-Requested-With") != "XMLHttpRequest":
                 request.setHeader('WWW-Authenticate', 'Basic')
             raise HTTPAuthenticationRequired("Authentication required.")
-        else:
-            request.username = user_name
-            data = yield method(*args, **kwargs)
-            returnValue(data)
+        request.username = user_name
+        data = yield method(*args, **kwargs)
+        returnValue(data)
     return wrapper

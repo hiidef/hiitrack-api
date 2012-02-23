@@ -11,8 +11,8 @@ from telephus.cassandra.c08.ttypes import NotFoundException
 from ..lib.cassandra import get_relation, get_user, set_user, delete_user
 from ..exceptions import HTTPAuthenticationRequired
 from ..models import BucketModel
-from hashlib import sha1
 from ..lib.profiler import profile
+from ..lib.hash import password_hash
 
 
 def user_authorize(method):
@@ -35,13 +35,6 @@ def user_authorize(method):
     return wrapper
 
 
-def password_hash(user_name, password):
-    """
-    Returns a password hash.
-    """
-    return sha1("%s:%s" % (user_name, password)).digest()
-
-
 class UserModel(object):
     """
     Users have usernames, passwords, and buckets.
@@ -49,7 +42,7 @@ class UserModel(object):
 
     def __init__(self, user_name):
         self.user_name = user_name
-    
+
     @profile
     @inlineCallbacks
     def exists(self):
@@ -61,14 +54,17 @@ class UserModel(object):
             returnValue(True)
         except NotFoundException:
             returnValue(False)
-    
+
     @profile
     @inlineCallbacks
     def validate_password(self, password):
         """
         Returns the password associated with the username.
         """
-        _password_hash = yield get_user(self.user_name, "hash")
+        try:
+            _password_hash = yield get_user(self.user_name, "hash")
+        except NotFoundException:
+            returnValue(False)
         returnValue(_password_hash == password_hash(self.user_name, password))
 
     @profile
@@ -77,8 +73,8 @@ class UserModel(object):
         Creates a user with the associated username and password.
         """
         return set_user(
-            self.user_name, 
-            "hash", 
+            self.user_name,
+            "hash",
             password_hash(self.user_name, password))
 
     @profile
