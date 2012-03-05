@@ -14,6 +14,7 @@ from ..lib.authentication import authenticate
 from ..exceptions import MissingParameterException
 from ..lib.b64encode import uri_b64decode, uri_b64encode, \
     b64encode_nested_keys, b64encode_double_nested_keys, b64encode_keys
+from ..lib.hash import pack_hash
 from ..lib.parameters import require
 from ..lib.profiler import profile
 
@@ -100,11 +101,22 @@ class Funnel(object):
         """
         Information about an unsaved funnel.
         """
-        if len(request.args["event_id"]) < 2:
+        if "event_id" in request.args:
+            if len(request.args["event_id"]) < 2:
+                request.setResponseCode(403)
+                raise MissingParameterException("Parameter 'event_id' requires"
+                    " at least two values.")
+            event_ids = [uri_b64decode(x) for x in request.args["event_id"]]
+        elif "event" in request.args:
+            if len(request.args["event"]) < 2:
+                request.setResponseCode(403)
+                raise MissingParameterException("Parameter 'event' requires"
+                    " at least two values.")
+            event_ids = [pack_hash((x,)) for x in request.args["event"]]
+        else:
             request.setResponseCode(403)
-            raise MissingParameterException("Parameter 'event_id' requires "
-                "at least two values.")
-        event_ids = [uri_b64decode(x) for x in request.args["event_id"]]
+            raise MissingParameterException("Parameters 'event' or 'event_id'"
+                " required.")
         if "property" in request.args:
             _property = PropertyModel(
                 user_name,
